@@ -13,6 +13,8 @@ Next.js 16 (App Router, Server Actions) · Drizzle ORM · Postgres (Neon) · Ver
 - **Import** `backlog.json` (gộp hoặc thay toàn bộ) và **Export** ra đúng cấu trúc cũ. Import rồi export ngay thì ra tệp giống hệt tệp gốc. Export thêm trường `nguoi_lam` (email) cho việc đã giao; bình luận không nằm trong tệp.
 - **Người dùng**: không có đăng ký công khai. Quản trị viên tạo link mời (dùng 1 lần, hạn 7 ngày) rồi copy gửi qua Zalo / Slack. Người được mời đặt tên + mật khẩu, lần sau đăng nhập bằng email + mật khẩu. Mời lại một email đã có thì thành link đặt lại mật khẩu. Hai quyền: Quản trị / Thành viên. Khoá tài khoản thì người đó bị đăng xuất ngay.
 
+- **API + CLI** cho project khác: token cá nhân (trang Tài khoản), REST `/api/v1`, CLI `scripts/tm.mjs`, chống tạo trùng bằng `khoa_ngoai` – xem [docs/API.md](docs/API.md).
+
 ## Triển khai lần đầu (Vercel + Neon)
 
 1. **Neon**: tạo project, copy connection string.
@@ -43,6 +45,12 @@ Neon CLI: `neon.ts` + `.neon` liên kết project; `neon deploy` / `neon env pul
 ## Đổi schema
 
 Sửa `src/db/schema.ts`, rồi chạy `npm run db:generate` (sinh tệp SQL trong `drizzle/`, nhớ commit tệp đó) và `npm run db:migrate`.
+
+Migrate lên production (chuỗi Neon production nằm trong `.env.prod`, không commit) – **trước** khi push code mới để Vercel deploy:
+
+```bash
+set -a && . ./.env.prod && set +a && npm run db:migrate
+```
 
 ## Cấu trúc
 

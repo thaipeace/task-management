@@ -9,6 +9,7 @@ import {
   serial,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export type Approval = { ai: string; ly_do: string } | null;
@@ -95,6 +96,8 @@ export const tasks = pgTable(
     branch: text("branch"),
     source: text("source").notNull().default(""),
     assigneeId: integer("assignee_id").references(() => users.id, { onDelete: "set null" }),
+    // "khoa_ngoai": khoá do công cụ ngoài đặt (vd. tên bài test lỗi) để gọi API nhiều lần không tạo trùng
+    externalKey: text("external_key"),
     position: doublePrecision("position").notNull().default(0),
     createdOn: text("created_on").notNull(),
     updatedOn: text("updated_on").notNull(),
@@ -102,7 +105,11 @@ export const tasks = pgTable(
     extra: json("extra").$type<Record<string, unknown>>().notNull().default({}),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("tasks_status_idx").on(t.status), index("tasks_sprint_idx").on(t.sprint)],
+  (t) => [
+    index("tasks_status_idx").on(t.status),
+    index("tasks_sprint_idx").on(t.sprint),
+    uniqueIndex("tasks_external_key_idx").on(t.externalKey),
+  ],
 );
 
 // "nhat_ky" của từng việc
@@ -136,6 +143,20 @@ export const comments = pgTable(
 );
 
 // "chap_nhan_rui_ro" (kind = risk) và "cho_quyet_dinh" (kind = decision)
+// Token cá nhân để gọi /api/v1 – chỉ lưu sha256, token gốc hiện một lần lúc tạo
+export const apiTokens = pgTable("api_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  // vài ký tự đầu để nhận ra token trong danh sách
+  prefix: text("prefix").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
+
 export const records = pgTable("records", {
   key: text("key").primaryKey(),
   kind: text("kind", { enum: ["risk", "decision"] }).notNull(),

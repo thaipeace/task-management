@@ -12,6 +12,7 @@ import {
   users,
   type Approval,
   type Related,
+  type Task,
 } from "@/db/schema";
 import { today } from "./constants";
 
@@ -23,7 +24,7 @@ const TASK_FIELDS = [
   "id", "tieu_de", "mang", "loai", "dot", "uu_tien", "trang_thai", "uoc_luong", "mo_ta",
   "bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "rui_ro", "can_phe_duyet",
   "phu_thuoc", "lien_quan", "nhanh_goi_y", "nguon", "tao_luc", "cap_nhat_luc", "nhat_ky",
-  "nguoi_lam",
+  "nguoi_lam", "khoa_ngoai",
 ];
 
 const strList = z
@@ -79,6 +80,7 @@ const taskSchema = z
       .nullish()
       .transform((v) => v ?? []),
     nguoi_lam: optStr,
+    khoa_ngoai: optStr,
   })
   .passthrough();
 
@@ -206,6 +208,7 @@ export async function importBacklog(
         related: t.lien_quan as Related,
         branch: t.nhanh_goi_y,
         source: t.nguon,
+        ...(t.khoa_ngoai ? { externalKey: t.khoa_ngoai } : {}),
         createdOn: t.tao_luc ?? date,
         updatedOn: t.cap_nhat_luc ?? t.tao_luc ?? date,
         extra,
@@ -296,6 +299,46 @@ export async function importBacklog(
   });
 }
 
+// Một việc theo cấu trúc "viec" của backlog.json – dùng cho export và cho API
+export function toBacklogTask(
+  t: Task,
+  assigneeEmail: string | null,
+  logs: { ngay: string; ghi: string }[],
+) {
+  return {
+    id: t.key,
+    tieu_de: t.title,
+    mang: t.area,
+    loai: t.type,
+    dot: t.sprint,
+    uu_tien: t.priority,
+    trang_thai: t.status,
+    uoc_luong: t.estimate,
+    mo_ta: t.description,
+    bang_chung: t.evidence,
+    viec_can_lam: t.steps,
+    tieu_chi_xong: t.doneCriteria,
+    kiem_thu: t.tests,
+    rui_ro: t.risk,
+    can_phe_duyet: t.approval ? { ai: t.approval.ai, ly_do: t.approval.ly_do } : null,
+    phu_thuoc: t.dependsOn,
+    lien_quan: {
+      issue: t.related.issue,
+      pr: t.related.pr,
+      viec: t.related.viec,
+      tai_lieu: t.related.tai_lieu,
+    },
+    nhanh_goi_y: t.branch,
+    nguon: t.source,
+    tao_luc: t.createdOn,
+    cap_nhat_luc: t.updatedOn,
+    nhat_ky: logs,
+    ...(assigneeEmail ? { nguoi_lam: assigneeEmail } : {}),
+    ...(t.externalKey ? { khoa_ngoai: t.externalKey } : {}),
+    ...t.extra,
+  };
+}
+
 const PREFIX_ORDER = ["BE", "FE", "OPS", "DOC", "AR", "QD"];
 function prefixRank(p: string) {
   const i = PREFIX_ORDER.indexOf(p);
@@ -331,37 +374,7 @@ export async function exportBacklog() {
         .map((c) => [c.prefix, { tiep_theo: c.next }]),
     ),
     dot: Object.fromEntries(sprintRows.map((s) => [s.code, s.description])),
-    viec: taskRows.map(({ task: t, email }) => ({
-      id: t.key,
-      tieu_de: t.title,
-      mang: t.area,
-      loai: t.type,
-      dot: t.sprint,
-      uu_tien: t.priority,
-      trang_thai: t.status,
-      uoc_luong: t.estimate,
-      mo_ta: t.description,
-      bang_chung: t.evidence,
-      viec_can_lam: t.steps,
-      tieu_chi_xong: t.doneCriteria,
-      kiem_thu: t.tests,
-      rui_ro: t.risk,
-      can_phe_duyet: t.approval ? { ai: t.approval.ai, ly_do: t.approval.ly_do } : null,
-      phu_thuoc: t.dependsOn,
-      lien_quan: {
-        issue: t.related.issue,
-        pr: t.related.pr,
-        viec: t.related.viec,
-        tai_lieu: t.related.tai_lieu,
-      },
-      nhanh_goi_y: t.branch,
-      nguon: t.source,
-      tao_luc: t.createdOn,
-      cap_nhat_luc: t.updatedOn,
-      nhat_ky: logsByTask.get(t.key) ?? [],
-      ...(email ? { nguoi_lam: email } : {}),
-      ...t.extra,
-    })),
+    viec: taskRows.map(({ task: t, email }) => toBacklogTask(t, email, logsByTask.get(t.key) ?? [])),
     chap_nhan_rui_ro: recordRows
       .filter((r) => r.kind === "risk")
       .map((r) => ({ id: r.key, ...r.data })),

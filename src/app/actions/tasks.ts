@@ -5,19 +5,11 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { comments, records, sprints, taskLogs, tasks, users } from "@/db/schema";
-import { requireAdmin, requireUser, type CurrentUser } from "@/lib/auth";
+import { comments, records, sprints, taskLogs, tasks } from "@/db/schema";
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { nextKey } from "@/lib/backlog";
-import {
-  AREAS,
-  ESTIMATES,
-  PRIORITIES,
-  RECORD_KINDS,
-  STATUSES,
-  TYPES,
-  labelOf,
-  today,
-} from "@/lib/constants";
+import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, STATUSES, TYPES, today } from "@/lib/constants";
+import { createTaskCore, statusLog, updateTaskCore } from "@/lib/task-service";
 
 export type TaskFormState = { error?: string; ok?: string } | undefined;
 
@@ -112,34 +104,11 @@ function parseTaskForm(form: FormData) {
   } as const;
 }
 
-async function userName(id: number | null) {
-  if (!id) return "chưa giao";
-  const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, id));
-  return u?.name ?? "?";
-}
-
-function statusLog(from: string, to: string, me: CurrentUser) {
-  return `Trạng thái: ${labelOf(STATUSES, from)} → ${labelOf(STATUSES, to)} (${me.name})`;
-}
-
 export async function createTask(_: TaskFormState, form: FormData): Promise<TaskFormState> {
   const me = await requireUser();
   const parsed = parseTaskForm(form);
   if ("error" in parsed) return { error: parsed.error };
-  const date = today();
-
-  const key = await db.transaction(async (tx) => {
-    const key = await nextKey(tx, parsed.data.area);
-    await tx.insert(tasks).values({
-      ...parsed.data,
-      key,
-      position: Date.now(),
-      createdOn: date,
-      updatedOn: date,
-    });
-    await tx.insert(taskLogs).values({ taskKey: key, date, text: `Tạo việc (${me.name})`, userId: me.id });
-    return key;
-  });
+  const key = await createTaskCore(parsed.data, me);
   redirect(`/tasks/${key}`);
 }
 
@@ -151,26 +120,7 @@ export async function updateTask(
   const me = await requireUser();
   const parsed = parseTaskForm(form);
   if ("error" in parsed) return { error: parsed.error };
-  const [old] = await db.select().from(tasks).where(eq(tasks.key, key));
-  if (!old) return { error: "Không tìm thấy việc" };
-  const date = today();
-
-  const logs: string[] = [];
-  if (old.status !== parsed.data.status) logs.push(statusLog(old.status, parsed.data.status, me));
-  if (old.assigneeId !== parsed.data.assigneeId) {
-    logs.push(`Giao cho: ${await userName(parsed.data.assigneeId)} (${me.name})`);
-  }
-
-  // mảng (BE/FE…) chỉ là nhãn – id giữ nguyên để không gãy liên kết
-  await db
-    .update(tasks)
-    .set({ ...parsed.data, updatedOn: date, updatedAt: new Date() })
-    .where(eq(tasks.key, key));
-  if (logs.length) {
-    await db
-      .insert(taskLogs)
-      .values(logs.map((text) => ({ taskKey: key, date, text, userId: me.id })));
-  }
+  if (!(await updateTaskCore(key, parsed.data, me))) return { error: "Không tìm thấy việc" };
   refresh();
   return { ok: "Đã lưu" };
 }
@@ -204,19 +154,7 @@ export async function setStatus(key: string, status: string) {
 
 export async function assignTask(key: string, assigneeId: number | null) {
   const me = await requireUser();
-  const [old] = await db.select({ a: tasks.assigneeId }).from(tasks).where(eq(tasks.key, key));
-  if (!old || old.a === assigneeId) return;
-  const date = today();
-  await db
-    .update(tasks)
-    .set({ assigneeId, updatedOn: date, updatedAt: new Date() })
-    .where(eq(tasks.key, key));
-  await db.insert(taskLogs).values({
-    taskKey: key,
-    date,
-    text: `Giao cho: ${await userName(assigneeId)} (${me.name})`,
-    userId: me.id,
-  });
+  await updateTaskCore(key, { assigneeId }, me);
   refresh();
 }
 

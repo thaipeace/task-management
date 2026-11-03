@@ -1,0 +1,72 @@
+import "server-only";
+import { and, asc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { db } from "@/db";
+import { comments, taskLogs, tasks, users } from "@/db/schema";
+import { ApiError, assigneeEmails } from "./api";
+import { toBacklogTask } from "./backlog";
+
+export async function getApiTask(key: string) {
+  const [t] = await db.select().from(tasks).where(eq(tasks.key, key));
+  if (!t) throw new ApiError(404, `Không có việc '${key}'`);
+  const [logs, commentRows, emails] = await Promise.all([
+    db
+      .select({ ngay: taskLogs.date, ghi: taskLogs.text })
+      .from(taskLogs)
+      .where(eq(taskLogs.taskKey, key))
+      .orderBy(asc(taskLogs.id)),
+    db
+      .select({ id: comments.id, nguoi: users.email, noi_dung: comments.body, luc: comments.createdAt })
+      .from(comments)
+      .leftJoin(users, eq(users.id, comments.userId))
+      .where(eq(comments.taskKey, key))
+      .orderBy(asc(comments.id)),
+    assigneeEmails([t.assigneeId]),
+  ]);
+  return {
+    ...toBacklogTask(t, t.assigneeId ? (emails.get(t.assigneeId) ?? null) : null, logs),
+    binh_luan: commentRows,
+  };
+}
+
+export type ListQuery = {
+  trang_thai?: string[];
+  dot?: string;
+  mang?: string;
+  uu_tien?: string;
+  loai?: string;
+  nguoi_lam?: string; // email | "none"
+  q?: string;
+  khoa_ngoai?: string;
+  gioi_han: number;
+};
+
+export async function listApiTasks(f: ListQuery, meId: number) {
+  const where: SQL[] = [];
+  if (f.trang_thai?.length) where.push(inArray(tasks.status, f.trang_thai));
+  if (f.dot === "none") where.push(isNull(tasks.sprint));
+  else if (f.dot) where.push(eq(tasks.sprint, f.dot));
+  if (f.mang) where.push(eq(tasks.area, f.mang));
+  if (f.uu_tien) where.push(eq(tasks.priority, f.uu_tien));
+  if (f.loai) where.push(eq(tasks.type, f.loai));
+  if (f.khoa_ngoai) where.push(eq(tasks.externalKey, f.khoa_ngoai));
+  if (f.nguoi_lam === "none") where.push(isNull(tasks.assigneeId));
+  else if (f.nguoi_lam === "me") where.push(eq(tasks.assigneeId, meId));
+  else if (f.nguoi_lam) where.push(eq(users.email, f.nguoi_lam.toLowerCase()));
+  if (f.q) {
+    const like = `%${f.q}%`;
+    where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
+  }
+  const rows = await db
+    .select({ task: tasks, email: users.email })
+    .from(tasks)
+    .leftJoin(users, eq(users.id, tasks.assigneeId))
+    .where(where.length ? and(...where) : undefined)
+    .orderBy(asc(tasks.seq))
+    .limit(f.gioi_han);
+  // danh sách không kèm nhật ký – lấy chi tiết qua GET /api/v1/tasks/{id}
+  return rows.map(({ task, email }) => {
+    const full: Partial<ReturnType<typeof toBacklogTask>> = toBacklogTask(task, email, []);
+    delete full.nhat_ky;
+    return full;
+  });
+}
