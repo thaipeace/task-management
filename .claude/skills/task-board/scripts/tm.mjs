@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // CLI cho Task Board API – không cần cài gói nào (Node ≥ 20). Chép tệp này sang project khác cũng chạy.
 // Cần biến môi trường TM_API_URL và TM_API_TOKEN (tự đọc .env.local / .env ở thư mục hiện tại nếu có).
-// Tài liệu đầy đủ: docs/API.md
+// Tài liệu đầy đủ: ../reference/API.md
 
 import { existsSync } from "node:fs";
 

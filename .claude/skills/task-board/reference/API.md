@@ -15,19 +15,20 @@ API để tạo, đọc và sửa việc bằng lệnh hoặc từ project khác
 
 Token có quyền như tài khoản đã tạo ra nó. Tài khoản bị khoá hoặc token bị thu hồi thì API trả `401` ngay. Nhật ký ghi tên người chủ token.
 
-## Cách nhanh nhất: CLI `scripts/tm.mjs`
+## Cách nhanh nhất: CLI `scripts/tm.mjs` (trong thư mục skill)
 
-Không cần cài gì (Node ≥ 20). Chép tệp này sang project khác hoặc gọi thẳng đường dẫn. CLI tự đọc `TM_API_URL` / `TM_API_TOKEN` từ biến môi trường hoặc `.env.local` / `.env` ở thư mục hiện tại.
+Không cần cài gì (Node ≥ 20). Chạy từ gốc project có skill: CLI tự đọc `TM_API_URL` / `TM_API_TOKEN` từ biến môi trường hoặc `.env.local` / `.env` ở thư mục hiện tại.
 
 ```bash
-node scripts/tm.mjs me
-node scripts/tm.mjs list --trang_thai=moi,dang-lam --mang=BE
-node scripts/tm.mjs get BE-001
-node scripts/tm.mjs create --tieu_de="Sửa lỗi X" --mang=BE --loai=loi --uu_tien=P1 \
+TM="node .claude/skills/task-board/scripts/tm.mjs"
+$TM me
+$TM list --trang_thai=moi,dang-lam --mang=BE
+$TM get BE-001
+$TM create --tieu_de="Sửa lỗi X" --mang=BE --loai=loi --uu_tien=P1 \
   --kiem_thu="node kiem-thu/may-chu.mjs" --kiem_thu="node kiem-thu/gop-web.mjs"
-node scripts/tm.mjs update BE-001 --trang_thai=dang-lam --nguoi_lam=me@congty.com
-node scripts/tm.mjs comment BE-001 "Đã tái hiện trên bản thử"
-node scripts/tm.mjs log BE-001 "Chạy lại may-chu.mjs: ĐẠT"
+$TM update BE-001 --trang_thai=dang-lam --nguoi_lam=me@congty.com
+$TM comment BE-001 "Đã tái hiện trên bản thử"
+$TM log BE-001 "Chạy lại may-chu.mjs: ĐẠT"
 ```
 
 - Trường danh sách (`bang_chung`, `viec_can_lam`, `tieu_chi_xong`, `kiem_thu`, `phu_thuoc`): lặp cờ để thêm nhiều dòng. Khi `update`, danh sách gửi lên **thay hẳn** danh sách cũ.
@@ -107,7 +108,7 @@ Gửi trường không có trong bảng → `400`. Đổi `trang_thai` hoặc `n
 Quy trình gợi ý sau mỗi lần chạy test:
 
 ```bash
-TM="node path/to/tm.mjs"
+TM="node .claude/skills/task-board/scripts/tm.mjs"
 
 # test lỗi → tạo việc (hoặc lấy lại việc cũ), rồi ghi nhật ký lần lỗi này
 $TM create --khoa_ngoai="test:may-chu.mjs#phan-G" --mang=BE --loai=loi --uu_tien=P1 \
@@ -138,7 +139,7 @@ curl -s -X PATCH "$TM_API_URL/api/v1/tasks/BE-016" \
   -d '{"trang_thai":"dang-lam"}'
 ```
 
-## Mã nguồn
+## Mã nguồn (repo task-management)
 
 - Route: `src/app/api/v1/**/route.ts`
 - Xác thực token, kiểm tra dữ liệu và đổi tên trường: `src/lib/api.ts`

@@ -20,7 +20,7 @@ export function ApiTokens({ tokens }: { tokens: Token[] }) {
         <h2 className="font-semibold">Token API</h2>
         <p className="mt-1 text-sm text-slate-500">
           Dùng để tạo / sửa việc bằng lệnh hoặc từ project khác (xem{" "}
-          <code className="rounded bg-slate-100 px-1">docs/API.md</code>). Token có quyền như tài khoản của bạn.
+          skill <code className="rounded bg-slate-100 px-1">.claude/skills/task-board</code> trong repo). Token có quyền như tài khoản của bạn.
         </p>
       </div>
 
