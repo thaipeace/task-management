@@ -18,5 +18,16 @@ function connect(): DB {
 
 const globalForDb = globalThis as unknown as { __db?: DB };
 
-export const db: DB = globalForDb.__db ?? connect();
-if (process.env.NODE_ENV !== "production") globalForDb.__db = db;
+function instance(): DB {
+  globalForDb.__db ??= connect();
+  return globalForDb.__db;
+}
+
+// Kết nối ở lần truy vấn đầu tiên, không phải lúc import – để `next build` chạy được khi chưa có DATABASE_URL
+export const db = new Proxy({} as DB, {
+  get(_, prop) {
+    const real = instance();
+    const value = Reflect.get(real, prop, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
