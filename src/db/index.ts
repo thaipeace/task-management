@@ -1,8 +1,7 @@
 import "server-only";
-import { Pool as NeonPool } from "@neondatabase/serverless";
-import { drizzle as drizzleNeon } from "drizzle-orm/neon-serverless";
-import { drizzle as drizzlePg, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { Pool as PgPool } from "pg";
+import { attachDatabasePool } from "@vercel/functions";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import * as schema from "./schema";
 
 export type DB = NodePgDatabase<typeof schema>;
@@ -10,12 +9,11 @@ export type DB = NodePgDatabase<typeof schema>;
 function connect(): DB {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("Thiếu biến môi trường DATABASE_URL");
-  // Neon: driver serverless (WebSocket) chạy tốt trên Vercel và hỗ trợ transaction.
-  // Postgres khác (local): node-postgres.
-  if (new URL(url).hostname.endsWith(".neon.tech")) {
-    return drizzleNeon({ client: new NeonPool({ connectionString: url }), schema }) as unknown as DB;
-  }
-  return drizzlePg({ client: new PgPool({ connectionString: url, max: 5 }), schema });
+  // Theo khuyến nghị của Neon cho Vercel: node-postgres + Fluid compute.
+  // DATABASE_URL là chuỗi pooled (-pooler); attachDatabasePool đóng kết nối rảnh trước khi function bị treo.
+  const pool = new Pool({ connectionString: url, max: 5 });
+  attachDatabasePool(pool);
+  return drizzle({ client: pool, schema });
 }
 
 const globalForDb = globalThis as unknown as { __db?: DB };

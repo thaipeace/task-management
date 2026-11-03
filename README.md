@@ -36,7 +36,9 @@ npm run db:migrate
 npm run dev
 ```
 
-`src/db/index.ts` tự chọn driver: host `*.neon.tech` thì dùng `@neondatabase/serverless`, còn lại dùng `pg`.
+`src/db/index.ts` dùng `pg` (node-postgres) + `attachDatabasePool` của `@vercel/functions`, theo khuyến nghị của Neon cho Vercel Fluid compute. App dùng `DATABASE_URL` (pooled); `drizzle-kit` dùng `DATABASE_URL_UNPOOLED` (direct) khi có.
+
+Neon CLI: `neon.ts` + `.neon` liên kết project; `neon deploy` / `neon env pull` ghi `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `NEON_BRANCH` vào `.env.local`.
 
 ## Đổi schema
 
