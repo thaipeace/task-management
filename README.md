@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Task Board
 
-## Getting Started
+Quản lý backlog kỹ thuật kiểu Jira, dựa trên cấu trúc `backlog.json` (Siroby Kids).
+Next.js 16 (App Router, Server Actions) · Drizzle ORM · Postgres (Neon) · Vercel.
 
-First, run the development server:
+## Tính năng
+
+- **Bảng** kéo thả theo trạng thái (`moi → san-sang → dang-lam → cho-duyet → xong`, cột `huy` ẩn/hiện). Mỗi lần đổi trạng thái hoặc người làm tự thêm một dòng `nhat_ky`.
+- **Backlog** nhóm theo đợt (`dot`), sắp theo ưu tiên; lọc theo đợt / mảng / ưu tiên / loại / người làm, tìm theo id, tiêu đề, mô tả.
+- **Chi tiết việc**: đủ mọi trường của `viec` (bằng chứng, việc cần làm, tiêu chí xong, kiểm thử, rủi ro, cần phê duyệt, phụ thuộc, liên quan…), bình luận, nhật ký. Id dạng `BE-001`, `QD-002` trong văn bản tự thành liên kết.
+- **Tạo việc**: id cấp tự động theo `dem_id` của mảng (BE/FE/OPS/DOC).
+- **Đợt**, **Rủi ro đã chấp nhận (AR)**, **Chờ quyết định (QD)**, ghi chú ngoài phạm vi.
+- **Import** `backlog.json` (gộp hoặc thay toàn bộ) và **Export** ra đúng cấu trúc cũ. Import rồi export ngay thì ra tệp giống hệt tệp gốc. Export thêm trường `nguoi_lam` (email) cho việc đã giao; bình luận không nằm trong tệp.
+- **Người dùng**: không có đăng ký công khai. Quản trị viên tạo link mời (dùng 1 lần, hạn 7 ngày) rồi copy gửi qua Zalo / Slack. Người được mời đặt tên + mật khẩu, lần sau đăng nhập bằng email + mật khẩu. Mời lại một email đã có thì thành link đặt lại mật khẩu. Hai quyền: Quản trị / Thành viên. Khoá tài khoản thì người đó bị đăng xuất ngay.
+
+## Triển khai lần đầu (Vercel + Neon)
+
+1. **Neon**: tạo project, copy connection string.
+2. **Tạo bảng** (chạy trên máy, một lần, và mỗi lần đổi schema):
+   ```bash
+   npm install
+   echo 'DATABASE_URL=postgresql://...neon.tech/neondb?sslmode=require' > .env.local
+   npm run db:migrate
+   ```
+3. **Vercel**: import repo, đặt biến môi trường
+   - `DATABASE_URL`: chuỗi Neon (nên dùng bản pooled `-pooler`). Nếu dùng tích hợp Neon trên Vercel thì biến này được điền sẵn.
+   - `SETUP_SECRET`: chuỗi ngẫu nhiên (`openssl rand -base64 24`).
+4. Mở `https://<app>/setup`, nhập `SETUP_SECRET` để tạo quản trị viên đầu tiên. Trang này chỉ dùng được khi DB chưa có người dùng nào.
+5. Vào **Import / Export** để nạp `backlog.json`, rồi vào **Người dùng** để mời mọi người.
+
+## Chạy trên máy
 
 ```bash
+cp .env.example .env.local   # điền DATABASE_URL (Neon, hoặc Postgres local) + SETUP_SECRET
+npm run db:migrate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`src/db/index.ts` tự chọn driver: host `*.neon.tech` thì dùng `@neondatabase/serverless`, còn lại dùng `pg`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Đổi schema
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Sửa `src/db/schema.ts`, rồi chạy `npm run db:generate` (sinh tệp SQL trong `drizzle/`, nhớ commit tệp đó) và `npm run db:migrate`.
 
-## Learn More
+## Cấu trúc
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/db/schema.ts        bảng: users, sessions, invites, tasks, task_logs, comments, sprints, counters, records (AR/QD), meta
+src/lib/backlog.ts      import / export backlog.json, cấp id
+src/lib/auth.ts         phiên (cookie httpOnly, DB lưu sha256), bcrypt
+src/app/actions/        server actions (auth, admin, tasks)
+src/app/(app)/          các trang cần đăng nhập
+src/app/(auth)/         login, setup, invite/[token]
+src/proxy.ts            chưa có cookie thì chuyển về /login
+```

@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
@@ -11,6 +10,13 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  experimental: {
+    // tệp backlog.json upload qua server action (Vercel giới hạn body 4.5 MB)
+    serverActions: { bodySizeLimit: "4mb" },
+  },
+  async redirects() {
+    return [{ source: "/", destination: "/board", permanent: false }];
   },
 };
 

@@ -1,0 +1,329 @@
+"use server";
+
+import { and, eq } from "drizzle-orm";
+import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { db } from "@/db";
+import { comments, records, sprints, taskLogs, tasks, users } from "@/db/schema";
+import { requireAdmin, requireUser, type CurrentUser } from "@/lib/auth";
+import { nextKey } from "@/lib/backlog";
+import {
+  AREAS,
+  ESTIMATES,
+  PRIORITIES,
+  RECORD_KINDS,
+  STATUSES,
+  TYPES,
+  labelOf,
+  today,
+} from "@/lib/constants";
+
+export type TaskFormState = { error?: string; ok?: string } | undefined;
+
+const values = <T extends readonly { value: string }[]>(list: T) =>
+  list.map((o) => o.value) as [T[number]["value"], ...T[number]["value"][]];
+
+const lines = z
+  .string()
+  .default("")
+  .transform((s) =>
+    s
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean),
+  );
+const ids = z
+  .string()
+  .default("")
+  .transform((s) =>
+    s
+      .split(/[\s,;]+/)
+      .map((x) => x.trim().toUpperCase())
+      .filter(Boolean),
+  );
+const issueRef = z
+  .string()
+  .default("")
+  .transform((s) => {
+    const v = s.trim().replace(/^#/, "");
+    return v === "" ? null : /^\d+$/.test(v) ? Number(v) : v;
+  });
+const nullable = z
+  .string()
+  .default("")
+  .transform((s) => s.trim() || null);
+
+const taskForm = z.object({
+  title: z.string().trim().min(1, "Cần nhập tiêu đề"),
+  area: z.enum(values(AREAS)),
+  type: z.enum(values(TYPES)),
+  sprint: nullable,
+  priority: z.enum(values(PRIORITIES)),
+  status: z.enum(values(STATUSES)),
+  estimate: z.union([z.literal(""), z.enum(values(ESTIMATES))]).transform((v) => v || null),
+  assigneeId: z
+    .string()
+    .default("")
+    .transform((v) => (v ? Number(v) : null)),
+  description: z.string().default(""),
+  evidence: lines,
+  steps: lines,
+  doneCriteria: lines,
+  tests: lines,
+  risk: z.string().default(""),
+  approvalWho: z.string().trim().default(""),
+  approvalWhy: z.string().trim().default(""),
+  dependsOn: ids,
+  relIssue: issueRef,
+  relPr: issueRef,
+  relTasks: ids,
+  relDocs: lines,
+  branch: nullable,
+  source: z.string().default(""),
+});
+
+function parseTaskForm(form: FormData) {
+  const parsed = taskForm.safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: parsed.error.issues[0].message } as const;
+  const d = parsed.data;
+  return {
+    data: {
+      title: d.title,
+      area: d.area,
+      type: d.type,
+      sprint: d.sprint,
+      priority: d.priority,
+      status: d.status,
+      estimate: d.estimate,
+      assigneeId: d.assigneeId,
+      description: d.description,
+      evidence: d.evidence,
+      steps: d.steps,
+      doneCriteria: d.doneCriteria,
+      tests: d.tests,
+      risk: d.risk,
+      approval: d.approvalWho || d.approvalWhy ? { ai: d.approvalWho, ly_do: d.approvalWhy } : null,
+      dependsOn: d.dependsOn,
+      related: { issue: d.relIssue, pr: d.relPr, viec: d.relTasks, tai_lieu: d.relDocs },
+      branch: d.branch,
+      source: d.source,
+    },
+  } as const;
+}
+
+async function userName(id: number | null) {
+  if (!id) return "chưa giao";
+  const [u] = await db.select({ name: users.name }).from(users).where(eq(users.id, id));
+  return u?.name ?? "?";
+}
+
+function statusLog(from: string, to: string, me: CurrentUser) {
+  return `Trạng thái: ${labelOf(STATUSES, from)} → ${labelOf(STATUSES, to)} (${me.name})`;
+}
+
+export async function createTask(_: TaskFormState, form: FormData): Promise<TaskFormState> {
+  const me = await requireUser();
+  const parsed = parseTaskForm(form);
+  if ("error" in parsed) return { error: parsed.error };
+  const date = today();
+
+  const key = await db.transaction(async (tx) => {
+    const key = await nextKey(tx, parsed.data.area);
+    await tx.insert(tasks).values({
+      ...parsed.data,
+      key,
+      position: Date.now(),
+      createdOn: date,
+      updatedOn: date,
+    });
+    await tx.insert(taskLogs).values({ taskKey: key, date, text: `Tạo việc (${me.name})`, userId: me.id });
+    return key;
+  });
+  redirect(`/tasks/${key}`);
+}
+
+export async function updateTask(
+  key: string,
+  _: TaskFormState,
+  form: FormData,
+): Promise<TaskFormState> {
+  const me = await requireUser();
+  const parsed = parseTaskForm(form);
+  if ("error" in parsed) return { error: parsed.error };
+  const [old] = await db.select().from(tasks).where(eq(tasks.key, key));
+  if (!old) return { error: "Không tìm thấy việc" };
+  const date = today();
+
+  const logs: string[] = [];
+  if (old.status !== parsed.data.status) logs.push(statusLog(old.status, parsed.data.status, me));
+  if (old.assigneeId !== parsed.data.assigneeId) {
+    logs.push(`Giao cho: ${await userName(parsed.data.assigneeId)} (${me.name})`);
+  }
+
+  // mảng (BE/FE…) chỉ là nhãn – id giữ nguyên để không gãy liên kết
+  await db
+    .update(tasks)
+    .set({ ...parsed.data, updatedOn: date, updatedAt: new Date() })
+    .where(eq(tasks.key, key));
+  if (logs.length) {
+    await db
+      .insert(taskLogs)
+      .values(logs.map((text) => ({ taskKey: key, date, text, userId: me.id })));
+  }
+  refresh();
+  return { ok: "Đã lưu" };
+}
+
+export async function moveTask(key: string, status: string, position: number) {
+  const me = await requireUser();
+  if (!STATUSES.some((s) => s.value === status)) throw new Error("Trạng thái lạ");
+  const [old] = await db.select({ status: tasks.status }).from(tasks).where(eq(tasks.key, key));
+  if (!old) throw new Error("Không tìm thấy việc");
+  const date = today();
+  await db
+    .update(tasks)
+    .set(
+      old.status === status
+        ? { position }
+        : { status, position, updatedOn: date, updatedAt: new Date() },
+    )
+    .where(eq(tasks.key, key));
+  if (old.status !== status) {
+    await db
+      .insert(taskLogs)
+      .values({ taskKey: key, date, text: statusLog(old.status, status, me), userId: me.id });
+  }
+  refresh();
+}
+
+export async function setStatus(key: string, status: string) {
+  const [t] = await db.select({ position: tasks.position }).from(tasks).where(eq(tasks.key, key));
+  if (t) await moveTask(key, status, t.position);
+}
+
+export async function assignTask(key: string, assigneeId: number | null) {
+  const me = await requireUser();
+  const [old] = await db.select({ a: tasks.assigneeId }).from(tasks).where(eq(tasks.key, key));
+  if (!old || old.a === assigneeId) return;
+  const date = today();
+  await db
+    .update(tasks)
+    .set({ assigneeId, updatedOn: date, updatedAt: new Date() })
+    .where(eq(tasks.key, key));
+  await db.insert(taskLogs).values({
+    taskKey: key,
+    date,
+    text: `Giao cho: ${await userName(assigneeId)} (${me.name})`,
+    userId: me.id,
+  });
+  refresh();
+}
+
+export async function addLog(key: string, form: FormData) {
+  const me = await requireUser();
+  const text = String(form.get("text") ?? "").trim();
+  if (!text) return;
+  await db.insert(taskLogs).values({ taskKey: key, date: today(), text, userId: me.id });
+  refresh();
+}
+
+export async function addComment(key: string, form: FormData) {
+  const me = await requireUser();
+  const body = String(form.get("body") ?? "").trim();
+  if (!body) return;
+  await db.insert(comments).values({ taskKey: key, body, userId: me.id });
+  refresh();
+}
+
+export async function deleteComment(id: number) {
+  const me = await requireUser();
+  await db
+    .delete(comments)
+    .where(me.role === "admin" ? eq(comments.id, id) : and(eq(comments.id, id), eq(comments.userId, me.id)));
+  refresh();
+}
+
+// ---- AR / QD ----
+
+export async function saveRecord(
+  kind: "risk" | "decision",
+  key: string | null,
+  _: TaskFormState,
+  form: FormData,
+): Promise<TaskFormState> {
+  await requireUser();
+  const f = Object.fromEntries(form) as Record<string, string>;
+  const data: Record<string, unknown> =
+    kind === "risk"
+      ? {
+          tieu_de: (f.tieu_de ?? "").trim(),
+          nguon: (f.nguon ?? "").trim(),
+          danh_gia: (f.danh_gia ?? "").trim(),
+          xem_lai_khi: (f.xem_lai_khi ?? "").trim(),
+        }
+      : {
+          cau_hoi: (f.cau_hoi ?? "").trim(),
+          ai: (f.ai ?? "").trim(),
+          chan_viec: (f.chan_viec ?? "")
+            .split(/[\s,;]+/)
+            .map((x) => x.trim().toUpperCase())
+            .filter(Boolean),
+        };
+  if (!(data.tieu_de ?? data.cau_hoi)) return { error: "Cần nhập nội dung" };
+
+  if (key) {
+    const [old] = await db.select().from(records).where(eq(records.key, key));
+    if (!old) return { error: "Không tìm thấy" };
+    // giữ các trường lạ có trong tệp import
+    await db
+      .update(records)
+      .set({ data: { ...old.data, ...data }, updatedAt: new Date() })
+      .where(eq(records.key, key));
+  } else {
+    await db.transaction(async (tx) => {
+      const newKey = await nextKey(tx, RECORD_KINDS[kind].prefix);
+      await tx.insert(records).values({ key: newKey, kind, data, position: Date.now() % 1e9 });
+    });
+  }
+  refresh();
+  return { ok: "Đã lưu" };
+}
+
+export async function deleteRecord(key: string) {
+  await requireAdmin();
+  await db.delete(records).where(eq(records.key, key));
+  refresh();
+}
+
+// ---- Đợt ----
+
+export async function saveSprint(
+  originalCode: string | null,
+  _: TaskFormState,
+  form: FormData,
+): Promise<TaskFormState> {
+  await requireUser();
+  const code = String(form.get("code") ?? "").trim();
+  const description = String(form.get("description") ?? "").trim();
+  if (!/^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(code)) {
+    return { error: "Mã đợt chỉ gồm chữ, số, dấu - _ . (ví dụ D5-ten-dot)" };
+  }
+  try {
+    if (originalCode) {
+      await db.update(sprints).set({ code, description }).where(eq(sprints.code, originalCode));
+    } else {
+      await db.insert(sprints).values({ code, description, position: Date.now() % 1e9 });
+    }
+  } catch {
+    return { error: "Mã đợt đã tồn tại" };
+  }
+  refresh();
+  return { ok: "Đã lưu" };
+}
+
+export async function deleteSprint(code: string) {
+  await requireAdmin();
+  await db.delete(sprints).where(eq(sprints.code, code));
+  refresh();
+}
