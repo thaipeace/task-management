@@ -20,15 +20,14 @@ Token có quyền như tài khoản đã tạo ra nó. Tài khoản bị khoá h
 Không cần cài gì (Node ≥ 20). Chạy từ gốc project có skill: CLI tự đọc `TM_API_URL` / `TM_API_TOKEN` từ biến môi trường hoặc `.env.local` / `.env` ở thư mục hiện tại.
 
 ```bash
-TM="node .claude/skills/task-board/scripts/tm.mjs"
-$TM me
-$TM list --trang_thai=moi,dang-lam --mang=BE
-$TM get BE-001
-$TM create --tieu_de="Sửa lỗi X" --mang=BE --loai=loi --uu_tien=P1 \
+node .claude/skills/task-board/scripts/tm.mjs me
+node .claude/skills/task-board/scripts/tm.mjs list --trang_thai=moi,dang-lam --mang=BE
+node .claude/skills/task-board/scripts/tm.mjs get BE-001
+node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="Sửa lỗi X" --mang=BE --loai=loi --uu_tien=P1 \
   --kiem_thu="node kiem-thu/may-chu.mjs" --kiem_thu="node kiem-thu/gop-web.mjs"
-$TM update BE-001 --trang_thai=dang-lam --nguoi_lam=me@congty.com
-$TM comment BE-001 "Đã tái hiện trên bản thử"
-$TM log BE-001 "Chạy lại may-chu.mjs: ĐẠT"
+node .claude/skills/task-board/scripts/tm.mjs update BE-001 --trang_thai=dang-lam --nguoi_lam=me@congty.com
+node .claude/skills/task-board/scripts/tm.mjs comment BE-001 "Đã tái hiện trên bản thử"
+node .claude/skills/task-board/scripts/tm.mjs log BE-001 "Chạy lại may-chu.mjs: ĐẠT"
 ```
 
 - Trường danh sách (`bang_chung`, `viec_can_lam`, `tieu_chi_xong`, `kiem_thu`, `phu_thuoc`): lặp cờ để thêm nhiều dòng. Khi `update`, danh sách gửi lên **thay hẳn** danh sách cũ.
@@ -108,21 +107,20 @@ Gửi trường không có trong bảng → `400`. Đổi `trang_thai` hoặc `n
 Quy trình gợi ý sau mỗi lần chạy test:
 
 ```bash
-TM="node .claude/skills/task-board/scripts/tm.mjs"
 
 # test lỗi → tạo việc (hoặc lấy lại việc cũ), rồi ghi nhật ký lần lỗi này
-$TM create --khoa_ngoai="test:may-chu.mjs#phan-G" --mang=BE --loai=loi --uu_tien=P1 \
+node .claude/skills/task-board/scripts/tm.mjs create --khoa_ngoai="test:may-chu.mjs#phan-G" --mang=BE --loai=loi --uu_tien=P1 \
   --tieu_de="may-chu.mjs phần G lỗi: đơn web cho SĐT đã có tài khoản" \
   --mo_ta="$(tail -n 40 test-output.log)" --kiem_thu="node kiem-thu/may-chu.mjs" --nguon="Chạy test tự động"
 # lệnh create in ra id ở stderr; hoặc tra lại theo khoá:
-ID=$($TM list --khoa_ngoai="test:may-chu.mjs#phan-G" --json | node -pe 'JSON.parse(require("fs").readFileSync(0)).viec[0]?.id')
-$TM log "$ID" "Lỗi lại lúc $(date +%H:%M): <tóm tắt>"
+ID=$(node .claude/skills/task-board/scripts/tm.mjs list --khoa_ngoai="test:may-chu.mjs#phan-G" --json | node -pe 'JSON.parse(require("fs").readFileSync(0)).viec[0]?.id')
+node .claude/skills/task-board/scripts/tm.mjs log "$ID" "Lỗi lại lúc $(date +%H:%M): <tóm tắt>"
 
 # việc đã xong / huỷ mà test lại lỗi → mở lại
-$TM update "$ID" --trang_thai=moi
+node .claude/skills/task-board/scripts/tm.mjs update "$ID" --trang_thai=moi
 
 # test đã qua → đưa việc sang chờ duyệt
-$TM update "$ID" --trang_thai=cho-duyet && $TM log "$ID" "Test đã qua"
+node .claude/skills/task-board/scripts/tm.mjs update "$ID" --trang_thai=cho-duyet && node .claude/skills/task-board/scripts/tm.mjs log "$ID" "Test đã qua"
 ```
 
 ## Ví dụ với curl

@@ -23,19 +23,18 @@ Kiểm tra: `node .claude/skills/task-board/scripts/tm.mjs me`
 
 ## Lệnh
 
-Chạy từ gốc project. Mọi lệnh in JSON; lỗi in ra stderr với exit code ≠ 0.
+Chạy từ gốc project và luôn gõ đủ `node .claude/skills/task-board/scripts/tm.mjs …`. Đừng gán lệnh vào biến kiểu `TM="node …"; $TM`, vì zsh không tách biến thành nhiều từ. Mọi lệnh in JSON; lỗi in ra stderr với exit code ≠ 0.
 
 ```bash
-TM="node .claude/skills/task-board/scripts/tm.mjs"
-$TM me                                    # tài khoản của token
-$TM sprints                               # mã đợt hợp lệ cho trường dot
-$TM list --trang_thai=moi,dang-lam --mang=BE --uu_tien=P1 --q="otp"   # thêm --json để lấy JSON
-$TM get BE-001                            # đủ trường + nhat_ky + binh_luan
-$TM create --tieu_de="…" --mang=BE [--loai=loi] [--uu_tien=P1] [--dot=D1-…] [--mo_ta="…"] \
+node .claude/skills/task-board/scripts/tm.mjs me                                    # tài khoản của token
+node .claude/skills/task-board/scripts/tm.mjs sprints                               # mã đợt hợp lệ cho trường dot
+node .claude/skills/task-board/scripts/tm.mjs list --trang_thai=moi,dang-lam --mang=BE --uu_tien=P1 --q="otp"   # thêm --json để lấy JSON
+node .claude/skills/task-board/scripts/tm.mjs get BE-001                            # đủ trường + nhat_ky + binh_luan
+node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="…" --mang=BE [--loai=loi] [--uu_tien=P1] [--dot=D1-…] [--mo_ta="…"] \
            [--kiem_thu="…" --kiem_thu="…"] [--khoa_ngoai="…"]
-$TM update BE-001 --trang_thai=dang-lam [--nguoi_lam=email] [trường khác…]
-$TM log BE-001 "một dòng nhật ký"
-$TM comment BE-001 "bình luận"
+node .claude/skills/task-board/scripts/tm.mjs update BE-001 --trang_thai=dang-lam [--nguoi_lam=email] [trường khác…]
+node .claude/skills/task-board/scripts/tm.mjs log BE-001 "một dòng nhật ký"
+node .claude/skills/task-board/scripts/tm.mjs comment BE-001 "bình luận"
 ```
 
 Giá trị hợp lệ:
@@ -56,7 +55,7 @@ Giá trị hợp lệ:
 
 - **Không xoá việc.** Việc bỏ đi thì `--trang_thai=huy`.
 - Đổi `trang_thai` hoặc `nguoi_lam` thì hệ thống tự ghi nhật ký. Muốn ghi thêm vì sao đổi thì dùng `log`.
-- `dot` phải là mã có trong `$TM sprints`. `nguoi_lam` phải là email của người dùng đã có trong hệ thống.
+- `dot` phải là mã có trong `node .claude/skills/task-board/scripts/tm.mjs sprints`. `nguoi_lam` phải là email của người dùng đã có trong hệ thống.
 - `tieu_de` viết một dòng, nói **kết quả cần đạt**, không chỉ tả triệu chứng.
 - Việc chạm tiền, bản thật, website hay dữ liệu của bé: đặt `--json-body` có `"can_phe_duyet":{"ai":"…","ly_do":"…"}`.
 
