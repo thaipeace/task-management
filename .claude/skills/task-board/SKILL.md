@@ -1,11 +1,19 @@
 ---
 name: task-board
-description: Tạo, xem, cập nhật việc (task) trên Task Board – backlog kỹ thuật kiểu Jira của Siroby – qua API bằng CLI có sẵn. Dùng khi người dùng muốn tạo / sửa / đóng / tra cứu việc, chuyển trạng thái, giao việc, ghi nhật ký hay bình luận vào việc, xem backlog, hoặc biến lỗi test thành việc (mỗi lỗi test một việc, không tạo trùng). Kích hoạt với các từ như "task board", "backlog", "tạo task", "tạo việc", "BE-0xx", "FE-0xx", "lỗi test thành task", "cập nhật trạng thái việc".
+description: Tạo, xem, cập nhật việc (task) trên Task Board – backlog kỹ thuật kiểu Jira của Siroby – qua API bằng CLI có sẵn. Dùng khi người dùng muốn tạo / sửa / đóng / tra cứu việc, chuyển trạng thái, giao việc, ghi nhật ký hay bình luận vào việc, xem backlog, hoặc biến lỗi test thành việc (mỗi lỗi test một việc, không tạo trùng). Kích hoạt với các từ như "task board", "backlog", "tạo task", "tạo việc", "SIA-0xx", "BE-0xx", "FE-0xx", "lỗi test thành task", "cập nhật trạng thái việc".
 ---
 
 # Task Board
 
-Task Board quản lý backlog kỹ thuật, chia theo **dự án**. Dự án SIA (SirobyApp) dùng id `BE-…`, `FE-…`, `OPS-…`, `DOC-…`. Dự án tạo sau dùng id có mã dự án đứng trước, vd. `ABC-BE-001`. Skill này điều khiển Task Board qua REST API bằng CLI `scripts/tm.mjs`, không cần cài gói nào (Node ≥ 20).
+Task Board quản lý backlog kỹ thuật, chia theo **dự án**. Skill này điều khiển Task Board qua REST API bằng CLI `scripts/tm.mjs`, không cần cài gói nào (Node ≥ 20).
+
+## Chuẩn id và tiêu đề (bắt buộc)
+
+- **Id việc** = `<MÃ DỰ ÁN>-<số>`, vd. `SIA-019`. Hệ thống tự cấp id khi tạo; không tự đặt id.
+- Id đổi từ chuẩn cũ mà trùng số có thêm chữ thường ở cuối: `SIA-010`, `SIA-010a`, `SIA-010b`. Viết đúng chữ thường đó khi nhắc tới việc.
+- **Mảng không nằm trong id** mà đứng đầu tiêu đề: `[BE] …`, `[FE] …`, `[OPS] …`, `[DOC] …`. Server tự thêm hoặc sửa thẻ này theo `mang` (cả khi tạo lẫn khi đổi `mang`), nên chỉ cần gửi `--mang` và phần tiêu đề còn lại.
+- Id cũ (`BE-010`, `FE-010`…) vẫn dùng được trong lệnh: API tự đổi sang id mới. Nhưng khi **viết** (mô tả, nhật ký, bình luận, `phu_thuoc`, `lien_quan.viec`, `viec_cha`) thì luôn dùng id mới. Muốn biết id mới thì chạy `get <id cũ>`.
+- AR / QD giữ id riêng (`AR-003`, `QD-004`).
 
 ## Chuẩn bị (một lần)
 
@@ -32,12 +40,12 @@ node .claude/skills/task-board/scripts/tm.mjs me                                
 node .claude/skills/task-board/scripts/tm.mjs projects                              # mã dự án hợp lệ cho --du_an
 node .claude/skills/task-board/scripts/tm.mjs sprints [--du_an=SIA]                 # mã đợt hợp lệ cho trường dot
 node .claude/skills/task-board/scripts/tm.mjs list --trang_thai=moi,dang-lam --mang=BE --uu_tien=P1 --q="otp"   # thêm --json để lấy JSON
-node .claude/skills/task-board/scripts/tm.mjs get BE-001                            # đủ trường + nhat_ky + binh_luan
+node .claude/skills/task-board/scripts/tm.mjs get SIA-001                           # đủ trường + nhat_ky + binh_luan
 node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="…" --mang=BE [--loai=loi] [--uu_tien=P1] [--dot=D1-…] [--mo_ta="…"] \
            [--kiem_thu="…" --kiem_thu="…"] [--khoa_ngoai="…"]
-node .claude/skills/task-board/scripts/tm.mjs update BE-001 --trang_thai=dang-lam [--nguoi_lam=email] [trường khác…]
-node .claude/skills/task-board/scripts/tm.mjs log BE-001 "một dòng nhật ký"
-node .claude/skills/task-board/scripts/tm.mjs comment BE-001 "bình luận"
+node .claude/skills/task-board/scripts/tm.mjs update SIA-001 --trang_thai=dang-lam [--nguoi_lam=email] [trường khác…]
+node .claude/skills/task-board/scripts/tm.mjs log SIA-001 "một dòng nhật ký"
+node .claude/skills/task-board/scripts/tm.mjs comment SIA-001 "bình luận"
 ```
 
 Giá trị hợp lệ:
@@ -58,8 +66,8 @@ Giá trị hợp lệ:
 - **Chia nhỏ một việc** (các phần A/B/C, các lỗi tìm ra khi làm việc đó, phần tách ra làm riêng) thì **bắt buộc** dùng `--viec_cha=<id việc mẹ>`. Không chỉ ghi id vào `lien_quan.viec` hay viết "việc con của …" trong mô tả: như vậy app chỉ hiểu là hai việc liên quan, không hiện trong mục Việc con và không tính tiến độ.
 - `lien_quan.viec` chỉ dành cho hai việc ngang hàng có dính dáng nhau. `phu_thuoc` dành cho việc phải xong trước.
 - Việc đã tạo mà quên gắn cha: `update <ID> --viec_cha=<id việc mẹ>`.
-- Tạo việc con: `create --viec_cha=BE-001 --tieu_de="…" --mang=BE`. Nên lấy mảng, đợt và ưu tiên giống việc cha.
-- Xem các việc con: `get BE-001` (trường `viec_con`) hoặc `list --viec_cha=BE-001`.
+- Tạo việc con: `create --viec_cha=SIA-010a --tieu_de="…" --mang=FE`. Nên lấy mảng, đợt và ưu tiên giống việc cha.
+- Xem các việc con: `get SIA-010a` (trường `viec_con`) hoặc `list --viec_cha=SIA-010a`.
 - Việc con không có việc con. Việc đang có việc con không thể thành việc con.
 - Thứ tự việc con chỉ đổi được bằng kéo thả trên web.
 
@@ -69,7 +77,7 @@ Giá trị hợp lệ:
 - Đổi `trang_thai` hoặc `nguoi_lam` thì hệ thống tự ghi nhật ký. Muốn ghi thêm vì sao đổi thì dùng `log`.
 - Mỗi việc thuộc một dự án, chọn lúc tạo, **không chuyển được** sang dự án khác. `dot` và `viec_cha` phải cùng dự án với việc. Kết quả `get` / `list` có trường `du_an`.
 - `dot` phải là mã có trong `node .claude/skills/task-board/scripts/tm.mjs sprints --du_an=<dự án>`. `nguoi_lam` phải là email của người dùng đã có trong hệ thống.
-- `tieu_de` viết một dòng, nói **kết quả cần đạt**, không chỉ tả triệu chứng.
+- `tieu_de` viết một dòng, nói **kết quả cần đạt**, không chỉ tả triệu chứng. Không cần tự gõ `[mảng]`; server tự thêm.
 - Việc chạm tiền, bản thật, website hay dữ liệu của bé: đặt `--json-body` có `"can_phe_duyet":{"ai":"…","ly_do":"…"}`.
 
 ## Mỗi lỗi test thành một việc (không trùng)

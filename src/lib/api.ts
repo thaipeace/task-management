@@ -7,7 +7,8 @@ import { apiTokens, sprints, users, type Project } from "@/db/schema";
 import { hashToken, newToken, type CurrentUser } from "./auth";
 import { AREAS, ESTIMATES, PRIORITIES, STATUSES, TYPES } from "./constants";
 import { getDefaultProject, getProjectByCode } from "./projects";
-import { TaskRuleError, type TaskData } from "./task-service";
+import { normalizeKey } from "./task-keys";
+import { TaskRuleError, resolveTaskKey, type TaskData } from "./task-service";
 
 export const TOKEN_PREFIX = "tm_";
 
@@ -185,10 +186,15 @@ export async function toTaskData(input: TaskInput, projectId: number): Promise<P
     ["nguon", "source"],
     ["khoa_ngoai", "externalKey"],
   ];
-  if (input.viec_cha !== undefined) out.parentKey = input.viec_cha?.toUpperCase() ?? null;
+  if (input.viec_cha !== undefined) {
+    // id cũ của việc cha (BE-010) vẫn nhận, đổi sang id mới
+    out.parentKey = input.viec_cha ? ((await resolveTaskKey(input.viec_cha)) ?? normalizeKey(input.viec_cha)) : null;
+  }
   for (const [from, to] of map) {
     if (input[from] !== undefined) (out as Record<string, unknown>)[to] = input[from];
   }
+  if (input.phu_thuoc) out.dependsOn = input.phu_thuoc.map(normalizeKey);
+  if (input.lien_quan) out.related = { ...input.lien_quan, viec: input.lien_quan.viec.map(normalizeKey) };
 
   if (input.dot) {
     const [s] = await db

@@ -19,12 +19,16 @@ export function ImportForm({ project }: { project: { id: number; code: string; k
       className="card space-y-4 p-4"
     >
       <input type="hidden" name="projectId" value={project.id} />
-      {project.keyPrefix && (
-        <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Id việc / AR / QD trong tệp phải bắt đầu bằng <code>{project.keyPrefix}</code> (vd.{" "}
-          <code>{project.keyPrefix}BE-001</code>).
-        </p>
-      )}
+      <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        Id việc trong tệp phải theo chuẩn <code>{project.code}-001</code>, <code>{project.code}-010a</code>…
+        {project.keyPrefix && (
+          <>
+            {" "}
+            AR / QD bắt đầu bằng <code>{project.keyPrefix}</code>.
+          </>
+        )}{" "}
+        Tệp backlog.json kiểu cũ (BE-001…) sẽ bị từ chối – hãy export bản mới rồi dùng tệp đó.
+      </p>
       <div>
         <label className="label">Tệp backlog.json</label>
         <input

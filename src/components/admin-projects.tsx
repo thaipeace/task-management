@@ -56,8 +56,8 @@ export function NewProjectForm() {
           </button>
           {code && (
             <span className="text-xs text-slate-500">
-              Id việc sẽ là <code className="rounded bg-slate-100 px-1">{code}-BE-001</code>,{" "}
-              <code className="rounded bg-slate-100 px-1">{code}-FE-001</code>…
+              Id việc sẽ là <code className="rounded bg-slate-100 px-1">{code}-001</code>,{" "}
+              <code className="rounded bg-slate-100 px-1">{code}-002</code>…
             </span>
           )}
           {state?.error && <span className="text-sm text-red-600">{state.error}</span>}
@@ -98,7 +98,7 @@ export function ProjectRow({
           </div>
           <div className="text-xs text-slate-500">
             {stats.tasks} việc ({stats.open} chưa xong) · {stats.sprints} đợt · id việc:{" "}
-            <code>{p.keyPrefix}BE-001</code>
+            <code>{p.code}-001</code>
           </div>
         </div>
         {!isCurrent && (

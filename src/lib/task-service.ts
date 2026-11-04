@@ -1,9 +1,10 @@
 import "server-only";
 import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { projects, taskLogs, tasks, users } from "@/db/schema";
-import { nextKey } from "./backlog";
+import { projects, taskAliases, taskLogs, tasks, users } from "@/db/schema";
+import { nextTaskKey } from "./backlog";
 import { STATUSES, labelOf, today } from "./constants";
+import { normalizeKey, withAreaTag } from "./task-keys";
 
 // Logic tạo / sửa việc dùng chung cho giao diện (server action) và API,
 // để nhật ký được ghi giống nhau bất kể đổi từ đâu.
@@ -17,6 +18,15 @@ export type TaskData = Omit<
   typeof tasks.$inferInsert,
   "key" | "seq" | "position" | "subOrder" | "createdOn" | "updatedOn" | "extra" | "updatedAt"
 >;
+
+// Id đúng của việc: chuẩn hoá chữ hoa / thường, id cũ (BE-010) → id mới (SIA-010). null = không có
+export async function resolveTaskKey(raw: string): Promise<string | null> {
+  const key = normalizeKey(raw);
+  const [t] = await db.select({ key: tasks.key }).from(tasks).where(eq(tasks.key, key));
+  if (t) return t.key;
+  const [a] = await db.select({ key: taskAliases.newKey }).from(taskAliases).where(eq(taskAliases.oldKey, key));
+  return a?.key ?? null;
+}
 
 async function userName(id: number | null | undefined) {
   if (!id) return "chưa giao";
@@ -52,7 +62,7 @@ export async function createTaskCore(data: TaskData, actor: Actor, via = "") {
   if (!project) throw new TaskRuleError("Không có dự án này");
   if (data.parentKey) await checkParent(data.parentKey, data.projectId);
   return db.transaction(async (tx) => {
-    const key = await nextKey(tx, project, data.area);
+    const key = await nextTaskKey(tx, project);
     let subOrder = 0;
     if (data.parentKey) {
       // việc con mới nằm cuối danh sách
@@ -64,6 +74,7 @@ export async function createTaskCore(data: TaskData, actor: Actor, via = "") {
     }
     await tx.insert(tasks).values({
       ...data,
+      title: withAreaTag(data.title, data.area),
       key,
       position: Date.now(),
       subOrder,
@@ -96,6 +107,10 @@ export async function updateTaskCore(key: string, input: Partial<TaskData>, acto
   const [old] = await db.select().from(tasks).where(eq(tasks.key, key));
   if (!old) return false;
   const date = today();
+  // tiêu đề luôn mở đầu bằng [mảng] – đổi mảng thì đổi theo
+  if (patch.title !== undefined || (patch.area !== undefined && patch.area !== old.area)) {
+    patch.title = withAreaTag(patch.title ?? old.title, patch.area ?? old.area);
+  }
 
   const logs: string[] = [];
   if (patch.status !== undefined && patch.status !== old.status) {

@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { comments, projects, taskLogs, tasks, users } from "@/db/schema";
+import { comments, projects, taskAliases, taskLogs, tasks, users } from "@/db/schema";
 import { ApiError, assigneeEmails } from "./api";
 import { toBacklogTask } from "./backlog";
+import { normalizeKey } from "./task-keys";
 
 export async function getApiTask(key: string) {
   const [t] = await db.select().from(tasks).where(eq(tasks.key, key));
@@ -68,13 +69,21 @@ export async function listApiTasks(f: ListQuery, meId: number) {
   if (f.loai) where.push(eq(tasks.type, f.loai));
   if (f.khoa_ngoai) where.push(eq(tasks.externalKey, f.khoa_ngoai));
   if (f.viec_cha === "none") where.push(isNull(tasks.parentKey));
-  else if (f.viec_cha) where.push(eq(tasks.parentKey, f.viec_cha.toUpperCase()));
+  else if (f.viec_cha) where.push(eq(tasks.parentKey, normalizeKey(f.viec_cha)));
   if (f.nguoi_lam === "none") where.push(isNull(tasks.assigneeId));
   else if (f.nguoi_lam === "me") where.push(eq(tasks.assigneeId, meId));
   else if (f.nguoi_lam) where.push(eq(users.email, f.nguoi_lam.toLowerCase()));
   if (f.q) {
     const like = `%${f.q}%`;
-    where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
+    where.push(
+      or(
+        ilike(tasks.key, like),
+        ilike(tasks.title, like),
+        ilike(tasks.description, like),
+        // tìm theo id cũ (BE-010)
+        sql`exists (select 1 from ${taskAliases} a where a.new_key = ${tasks.key} and a.old_key ilike ${like})`,
+      )!,
+    );
   }
   const rows = await db
     .select({ task: tasks, email: users.email, project: projects.code })

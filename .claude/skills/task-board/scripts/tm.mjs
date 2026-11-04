@@ -29,6 +29,8 @@ const HELP = `Dùng:
 Trường: tieu_de mang loai dot uu_tien trang_thai uoc_luong mo_ta rui_ro nhanh_goi_y nguon nguoi_lam khoa_ngoai
 Trường danh sách (lặp cờ để thêm nhiều dòng): bang_chung viec_can_lam tieu_chi_xong kiem_thu phu_thuoc
 Dự án: --du_an hoặc biến TM_PROJECT; không có thì list/sprints lấy mọi dự án, create vào dự án mặc định.
+Id việc: <MÃ>-<số> (SIA-019, SIA-010a), cấp tự động; id cũ BE-010… vẫn dùng được.
+Tiêu đề: server tự thêm "[mang] " ở đầu – không cần gõ.
 Giá trị "null" = xoá trường. Hoặc gửi nguyên JSON: --json-body='{"tieu_de":"…"}' / --file=viec.json`;
 
 const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc"];

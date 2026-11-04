@@ -27,7 +27,7 @@ async function NewContent({ searchParams }: Pick<PageProps<"/tasks/new">, "searc
     <>
       <PageHeader
         title={`Tạo việc trong ${project.name}`}
-        subtitle={`Id được cấp tự động theo mảng (${project.keyPrefix}BE-014, ${project.keyPrefix}FE-010 …).`}
+        subtitle={`Id được cấp tự động (${project.code}-039 …); tiêu đề tự thêm [mảng] ở đầu, vd. "[BE] …".`}
       />
       <TaskForm
         action={createTask.bind(null, project.id)}

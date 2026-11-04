@@ -8,8 +8,8 @@ export const GET = withApiAuth(async () => {
       ma: p.code,
       ten: p.name,
       mo_ta: p.description,
-      // id việc mới = tien_to_id + mảng + số, vd. "" + "BE-014" hoặc "ABC-" + "BE-001"
-      tien_to_id: p.keyPrefix,
+      // id việc: <ma>-<số>, vd. SIA-039 (id đổi từ chuẩn cũ mà trùng số có thêm a, b…: SIA-010a)
+      mau_id_viec: `${p.code}-001`,
       mac_dinh: i === 0,
     })),
   });

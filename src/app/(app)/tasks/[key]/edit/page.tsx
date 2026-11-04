@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { updateTask } from "@/app/actions/tasks";
 import { TaskForm } from "@/components/task-form";
@@ -8,6 +8,7 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { listActiveUsers, listSprints } from "@/lib/queries";
+import { resolveTaskKey } from "@/lib/task-service";
 
 export default function EditTaskPage({ params }: PageProps<"/tasks/[key]/edit">) {
   return (
@@ -24,7 +25,11 @@ async function EditContent({ params }: Pick<PageProps<"/tasks/[key]/edit">, "par
     db.select().from(tasks).where(eq(tasks.key, key)),
     listActiveUsers(),
   ]);
-  if (!task) notFound();
+  if (!task) {
+    const real = await resolveTaskKey(key);
+    if (real) redirect(`/tasks/${real}/edit`);
+    notFound();
+  }
   const sprints = await listSprints(task.projectId);
   return (
     <div className="mx-auto max-w-6xl">

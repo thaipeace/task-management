@@ -5,11 +5,12 @@ Next.js 16 (App Router, Server Actions) · Drizzle ORM · Postgres (Neon) · Ver
 
 ## Tính năng
 
-- **Dự án**: mỗi dự án là một backlog riêng (đợt, việc, AR/QD, import / export riêng); đổi dự án ở góc trên thanh bên. Quản trị viên thêm dự án ở **Quản trị → Dự án**. Dự án đầu tiên `SIA` (SirobyApp) giữ id cũ `BE-001`; dự án thêm sau có id kèm mã, vd. `ABC-BE-001`. Người dùng dùng chung mọi dự án.
+- **Dự án**: mỗi dự án là một backlog riêng (đợt, việc, AR/QD, import / export riêng); đổi dự án ở góc trên thanh bên. Quản trị viên thêm dự án ở **Quản trị → Dự án**. Người dùng dùng chung mọi dự án.
+- **Chuẩn id**: `<MÃ DỰ ÁN>-<số>` (`SIA-019`); mảng đứng đầu tiêu đề (`[FE] …`, server tự thêm / sửa theo mảng). Id chuẩn cũ (`BE-010`, `FE-010`) đã đổi bằng `scripts/migrate-task-keys.mts` (trùng số → việc sửa sau thêm `a`, `b`…: `SIA-010a`); id cũ vẫn mở được và vẫn gọi API được (bảng `task_aliases`).
 - **Bảng** kéo thả theo trạng thái (`moi → san-sang → dang-lam → cho-duyet → xong`, cột `huy` ẩn/hiện). Mỗi lần đổi trạng thái hoặc người làm tự thêm một dòng `nhat_ky`.
 - **Backlog** nhóm theo đợt (`dot`), sắp theo ưu tiên; lọc theo đợt / mảng / ưu tiên / loại / người làm, tìm theo id, tiêu đề, mô tả.
 - **Chi tiết việc**: đủ mọi trường của `viec` (bằng chứng, việc cần làm, tiêu chí xong, kiểm thử, rủi ro, cần phê duyệt, phụ thuộc, liên quan…), bình luận, nhật ký. Id dạng `BE-001`, `QD-002` trong văn bản tự thành liên kết.
-- **Tạo việc**: id cấp tự động theo `dem_id` của mảng (BE/FE/OPS/DOC).
+- **Tạo việc**: id cấp tự động theo bộ đếm của dự án (`dem_id.SIA`).
 - **Đợt**, **Rủi ro đã chấp nhận (AR)**, **Chờ quyết định (QD)**, ghi chú ngoài phạm vi.
 - **Import** `backlog.json` (gộp hoặc thay toàn bộ) và **Export** ra đúng cấu trúc cũ. Import rồi export ngay thì ra tệp giống hệt tệp gốc. Export thêm trường `nguoi_lam` (email) cho việc đã giao; bình luận không nằm trong tệp.
 - **Người dùng**: không có đăng ký công khai. Quản trị viên tạo link mời (dùng 1 lần, hạn 7 ngày) rồi copy gửi qua Zalo / Slack. Người được mời đặt tên + mật khẩu, lần sau đăng nhập bằng email + mật khẩu. Mời lại một email đã có thì thành link đặt lại mật khẩu. Hai quyền: Quản trị / Thành viên. Khoá tài khoản thì người đó bị đăng xuất ngay.

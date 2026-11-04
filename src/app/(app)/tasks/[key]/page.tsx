@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { addComment, addLog } from "@/app/actions/tasks";
 import { ProjectLink } from "@/components/project-switcher";
@@ -10,6 +10,7 @@ import { AreaBadge, Avatar, Loading, PriorityBadge, TypeIcon } from "@/component
 import { requireUser } from "@/lib/auth";
 import { AREAS, ESTIMATES, PRIORITIES, TYPES, labelOf } from "@/lib/constants";
 import { getTask, listActiveUsers } from "@/lib/queries";
+import { resolveTaskKey } from "@/lib/task-service";
 
 export default function TaskPage({ params }: PageProps<"/tasks/[key]">) {
   return (
@@ -23,7 +24,12 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
   const me = await requireUser();
   const { key } = await params;
   const [data, users] = await Promise.all([getTask(decodeURIComponent(key)), listActiveUsers()]);
-  if (!data) notFound();
+  if (!data) {
+    // id cũ (BE-010) hoặc gõ sai chữ hoa / thường → về id đúng
+    const real = await resolveTaskKey(decodeURIComponent(key));
+    if (real) redirect(`/tasks/${real}`);
+    notFound();
+  }
   const { task: t, logs, comments, subtasks, parent, project } = data;
   const fmt = new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",

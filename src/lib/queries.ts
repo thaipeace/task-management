@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { comments, invites, meta, projects, records, sprints, taskLogs, tasks, users } from "@/db/schema";
+import { comments, invites, meta, projects, records, sprints, taskAliases, taskLogs, tasks, users } from "@/db/schema";
 
 // Mỗi bộ lọc là danh sách (rỗng = không lọc). Trong một bộ lọc: HOẶC; giữa các bộ lọc: VÀ.
 // Trên URL: giá trị ngăn bằng dấu phẩy, vd. ?area=BE,FE&priority=P0,P1
@@ -46,7 +46,15 @@ export async function listTasks(projectId: number, f: TaskFilters, meId: number)
   const where: SQL[] = [eq(tasks.projectId, projectId), isNull(tasks.parentKey)];
   if (f.q) {
     const like = `%${f.q}%`;
-    where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
+    where.push(
+      or(
+        ilike(tasks.key, like),
+        ilike(tasks.title, like),
+        ilike(tasks.description, like),
+        // tìm theo id cũ (BE-010)
+        sql`exists (select 1 from ${taskAliases} a where a.new_key = ${tasks.key} and a.old_key ilike ${like})`,
+      )!,
+    );
   }
   if (f.sprint.length) where.push(inListOrNull(tasks.sprint, f.sprint));
   if (f.area.length) where.push(inArray(tasks.area, f.area));

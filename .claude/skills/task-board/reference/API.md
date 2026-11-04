@@ -24,12 +24,12 @@ Không cần cài gì (Node ≥ 20). Chạy từ gốc project có skill: CLI t�
 ```bash
 node .claude/skills/task-board/scripts/tm.mjs me
 node .claude/skills/task-board/scripts/tm.mjs list --trang_thai=moi,dang-lam --mang=BE
-node .claude/skills/task-board/scripts/tm.mjs get BE-001
+node .claude/skills/task-board/scripts/tm.mjs get SIA-001
 node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="Sửa lỗi X" --mang=BE --loai=loi --uu_tien=P1 \
   --kiem_thu="node kiem-thu/may-chu.mjs" --kiem_thu="node kiem-thu/gop-web.mjs"
-node .claude/skills/task-board/scripts/tm.mjs update BE-001 --trang_thai=dang-lam --nguoi_lam=me@congty.com
-node .claude/skills/task-board/scripts/tm.mjs comment BE-001 "Đã tái hiện trên bản thử"
-node .claude/skills/task-board/scripts/tm.mjs log BE-001 "Chạy lại may-chu.mjs: ĐẠT"
+node .claude/skills/task-board/scripts/tm.mjs update SIA-001 --trang_thai=dang-lam --nguoi_lam=me@congty.com
+node .claude/skills/task-board/scripts/tm.mjs comment SIA-001 "Đã tái hiện trên bản thử"
+node .claude/skills/task-board/scripts/tm.mjs log SIA-001 "Chạy lại may-chu.mjs: ĐẠT"
 ```
 
 - Trường danh sách (`bang_chung`, `viec_can_lam`, `tieu_chi_xong`, `kiem_thu`, `phu_thuoc`): lặp cờ để thêm nhiều dòng. Khi `update`, danh sách gửi lên **thay hẳn** danh sách cũ.
@@ -40,8 +40,11 @@ node .claude/skills/task-board/scripts/tm.mjs log BE-001 "Chạy lại may-chu.m
 
 Việc, đợt và AR/QD thuộc từng dự án. Người dùng và token dùng chung cho mọi dự án.
 
-- Dự án SIA (SirobyApp, dự án đầu tiên và là **mặc định**) giữ id cũ: `BE-016`, `FE-010`…
-- Dự án tạo sau dùng id có mã dự án đứng trước: dự án `ABC` → `ABC-BE-001`, `ABC-QD-001`.
+- Dự án SIA (SirobyApp) là dự án đầu tiên và là **mặc định**.
+- **Id việc** = `<mã dự án>-<số>`: `SIA-019`, `ABC-001`. Id đổi từ chuẩn cũ mà trùng số có thêm chữ thường: `SIA-010`, `SIA-010a`, `SIA-010b`.
+- **Mảng nằm đầu tiêu đề**, không nằm trong id: `"[FE] Mỗi bé một dữ liệu riêng"`. Server tự thêm hoặc sửa thẻ theo `mang` khi tạo việc, khi sửa `tieu_de` và khi đổi `mang`. Thẻ gửi lên sai thì bị thay bằng thẻ đúng.
+- **Id cũ** (`BE-010`, `FE-010`…) vẫn dùng được ở đường dẫn `/tasks/{id}` và ở `viec_cha`: API tự đổi sang id mới. Kết quả luôn trả id mới. `q` cũng tìm được theo id cũ.
+- AR / QD giữ id riêng: `AR-003`, `QD-004` (dự án tạo sau: `ABC-QD-001`).
 - `POST /tasks` nhận `du_an` (mã dự án). Không gửi thì việc vào dự án mặc định. Việc không chuyển được sang dự án khác, nên `PATCH` không nhận `du_an`.
 - `dot` và `viec_cha` phải thuộc cùng dự án với việc.
 - Chỉ admin thêm được dự án, trên web ở trang **Quản trị → Dự án**.
@@ -53,7 +56,7 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | Lệnh | Đường dẫn | Việc |
 | --- | --- | --- |
 | GET | `/me` | Tài khoản của token: `{ id, email, name, role }` |
-| GET | `/projects` | `{ du_an: [{ ma, ten, mo_ta, tien_to_id, mac_dinh }] }` |
+| GET | `/projects` | `{ du_an: [{ ma, ten, mo_ta, mau_id_viec, mac_dinh }] }` |
 | GET | `/sprints` | `{ dot: [{ du_an, ma, mo_ta }] }`. Thêm `?du_an=SIA` để lấy đợt của một dự án |
 | GET | `/tasks` | Danh sách việc, không kèm `nhat_ky` |
 | POST | `/tasks` | Tạo việc |
@@ -84,10 +87,10 @@ Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
 
 | Trường | Kiểu | Giá trị |
 | --- | --- | --- |
-| `id` | chỉ đọc | Cấp tự động theo dự án và `mang`: `BE-016`, `FE-011`… (SIA) hoặc `ABC-BE-001` |
+| `id` | chỉ đọc | Cấp tự động theo dự án: `SIA-019`, `SIA-020`… (id cũ đổi sang có thể có hậu tố: `SIA-010a`) |
 | `du_an` | mã dự án | Chỉ gửi khi tạo. Mặc định là dự án đầu tiên (SIA). Có trong mọi kết quả |
-| `tieu_de` | string | **Bắt buộc khi tạo.** Một dòng, nói kết quả cần đạt |
-| `mang` | enum | **Bắt buộc khi tạo.** `BE` \| `FE` \| `OPS` \| `DOC` |
+| `tieu_de` | string | **Bắt buộc khi tạo.** Một dòng, nói kết quả cần đạt. Server tự thêm `[mang] ` ở đầu |
+| `mang` | enum | **Bắt buộc khi tạo.** `BE` \| `FE` \| `OPS` \| `DOC`. Hiện thành thẻ đầu tiêu đề |
 | `loai` | enum | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu`. Mặc định `loi` |
 | `dot` | string \| null | Mã đợt phải có sẵn trong dự án của việc (xem `/sprints?du_an=…`) |
 | `uu_tien` | enum | `P0` \| `P1` \| `P2` \| `P3`. Mặc định `P2` |
@@ -151,7 +154,7 @@ curl -s -X POST "$TM_API_URL/api/v1/tasks" \
   -H "Authorization: Bearer $TM_API_TOKEN" -H "Content-Type: application/json" \
   -d '{"tieu_de":"Sửa lỗi X","mang":"BE","uu_tien":"P1","kiem_thu":["node kiem-thu/may-chu.mjs"]}'
 
-curl -s -X PATCH "$TM_API_URL/api/v1/tasks/BE-016" \
+curl -s -X PATCH "$TM_API_URL/api/v1/tasks/SIA-016" \
   -H "Authorization: Bearer $TM_API_TOKEN" -H "Content-Type: application/json" \
   -d '{"trang_thai":"dang-lam"}'
 ```

@@ -151,6 +151,15 @@ export const tasks = pgTable(
   ],
 );
 
+// Id cũ của việc đã đổi id (vd. BE-010 → SIA-010) – mở / gọi API bằng id cũ vẫn tới đúng việc
+export const taskAliases = pgTable("task_aliases", {
+  oldKey: text("old_key").primaryKey(),
+  newKey: text("new_key")
+    .notNull()
+    .references(() => tasks.key, { onDelete: "cascade", onUpdate: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // "nhat_ky" của từng việc
 export const taskLogs = pgTable(
   "task_logs",

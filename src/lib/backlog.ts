@@ -7,6 +7,7 @@ import {
   meta,
   records,
   sprints,
+  taskAliases,
   taskLogs,
   tasks,
   users,
@@ -16,6 +17,7 @@ import {
   type Task,
 } from "@/db/schema";
 import { today } from "./constants";
+import { formatTaskKey, taskKeyPattern } from "./task-keys";
 
 // Các mảng / khoá có bảng riêng; mọi khoá cấp cao khác đi vào bảng meta.
 const STRUCTURED = ["dem_id", "dot", "viec", "chap_nhan_rui_ro", "cho_quyet_dinh"];
@@ -109,9 +111,9 @@ export type ImportSummary = {
   logs: number;
 };
 
-// "BE-012" → BE / 12; "ABC-BE-012" (dự án có keyPrefix) → ABC-BE / 12
+// "SIA-012" / "SIA-012a" → SIA / 12; "AR-003" → AR / 3; "ABC-AR-001" → ABC-AR / 1
 function idNumber(key: string) {
-  const m = /^([A-Z][A-Z0-9-]*)-(\d+)$/.exec(key);
+  const m = /^([A-Z][A-Z0-9-]*)-(\d+)[a-z]*$/.exec(key);
   return m ? { prefix: m[1], n: Number(m[2]) } : null;
 }
 
@@ -130,12 +132,20 @@ export async function importBacklog(
   const date = today();
   const pid = project.id;
 
-  // id là khoá chung của mọi dự án: dự án có keyPrefix chỉ nhận id mang tiền tố của nó
-  const ids = [...data.viec.map((t) => t.id), ...data.chap_nhan_rui_ro.map((r) => r.id), ...data.cho_quyet_dinh.map((r) => r.id)];
-  if (project.keyPrefix) {
-    const bad = ids.find((id) => !id.startsWith(project.keyPrefix));
-    if (bad) throw new Error(`Id ${bad} không thuộc dự án ${project.code} – id trong dự án này phải bắt đầu bằng ${project.keyPrefix}`);
+  // id là khoá chung của mọi dự án: việc phải theo chuẩn <MÃ>-<số>, AR/QD mang keyPrefix của dự án
+  const keyRe = taskKeyPattern(project.code);
+  const badTask = data.viec.find((t) => !keyRe.test(t.id));
+  if (badTask) {
+    throw new Error(
+      `Id ${badTask.id} không theo chuẩn dự án ${project.code} (${formatTaskKey(project.code, 1)}, ${formatTaskKey(project.code, 1, "a")}…) – tệp backlog cũ phải đổi id trước khi import`,
+    );
   }
+  const recordIds = [...data.chap_nhan_rui_ro.map((r) => r.id), ...data.cho_quyet_dinh.map((r) => r.id)];
+  if (project.keyPrefix) {
+    const bad = recordIds.find((id) => !id.startsWith(project.keyPrefix));
+    if (bad) throw new Error(`Id ${bad} không thuộc dự án ${project.code} – AR/QD trong dự án này phải bắt đầu bằng ${project.keyPrefix}`);
+  }
+  const ids = [...data.viec.map((t) => t.id), ...recordIds];
 
   return db.transaction(async (tx) => {
     if (ids.length) {
@@ -153,6 +163,16 @@ export async function importBacklog(
       ];
       if (taken) throw new Error(`Id ${taken.key} đã thuộc dự án khác – chọn đúng dự án trước khi import`);
     }
+
+    // id cũ (BE-010 → SIA-010) xoá theo việc khi thay toàn bộ – giữ lại để gắn lại sau khi nạp
+    const aliases =
+      mode === "replace"
+        ? await tx
+            .select({ oldKey: taskAliases.oldKey, newKey: taskAliases.newKey })
+            .from(taskAliases)
+            .innerJoin(tasks, eq(tasks.key, taskAliases.newKey))
+            .where(eq(tasks.projectId, pid))
+        : [];
 
     if (mode === "replace") {
       // xoá việc con trước để khoá ngoại việc cha không vướng; nhat_ky + bình luận xoá theo (cascade)
@@ -261,6 +281,10 @@ export async function importBacklog(
       if (!existing.has(t.id)) created++;
       index++;
     }
+
+    const stillThere = new Set(keys);
+    const keep = aliases.filter((a) => stillThere.has(a.newKey));
+    if (keep.length) await tx.insert(taskAliases).values(keep).onConflictDoNothing();
 
     // việc cha: gắn sau khi đã nạp hết việc (cha có thể đứng sau con trong tệp), rồi kiểm luật một cấp
     const withParent = data.viec.filter((t) => t.viec_cha);
@@ -480,7 +504,20 @@ export async function exportBacklog(project: Pick<Project, "id" | "keyPrefix">) 
   return out;
 }
 
-// Cấp id tiếp theo cho mảng / loại (BE, FE, AR, QD …) của dự án – an toàn khi nhiều người tạo cùng lúc
+// Cấp id việc tiếp theo của dự án: SIA-039 – an toàn khi nhiều người tạo cùng lúc
+export async function nextTaskKey(
+  tx: Pick<typeof db, "insert">,
+  project: Pick<Project, "id" | "code">,
+): Promise<string> {
+  const [row] = await tx
+    .insert(counters)
+    .values({ prefix: project.code, projectId: project.id, next: 2 })
+    .onConflictDoUpdate({ target: counters.prefix, set: { next: sql`${counters.next} + 1` } })
+    .returning({ next: counters.next });
+  return formatTaskKey(project.code, row.next - 1);
+}
+
+// Cấp id AR / QD tiếp theo của dự án (AR-004, ABC-QD-001 …)
 export async function nextKey(
   tx: Pick<typeof db, "insert">,
   project: Pick<Project, "id" | "keyPrefix">,

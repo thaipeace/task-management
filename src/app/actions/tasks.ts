@@ -9,6 +9,7 @@ import { comments, projects, records, sprints, taskLogs, tasks } from "@/db/sche
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { nextKey } from "@/lib/backlog";
 import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, STATUSES, TYPES, today } from "@/lib/constants";
+import { normalizeKey } from "@/lib/task-keys";
 import {
   TaskRuleError,
   createTaskCore,
@@ -37,8 +38,9 @@ const ids = z
   .transform((s) =>
     s
       .split(/[\s,;]+/)
-      .map((x) => x.trim().toUpperCase())
-      .filter(Boolean),
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .map(normalizeKey),
   );
 const issueRef = z
   .string()
@@ -271,8 +273,9 @@ export async function saveRecord(
           ai: (f.ai ?? "").trim(),
           chan_viec: (f.chan_viec ?? "")
             .split(/[\s,;]+/)
-            .map((x) => x.trim().toUpperCase())
-            .filter(Boolean),
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .map(normalizeKey),
         };
   if (!(data.tieu_de ?? data.cau_hoi)) return { error: "Cần nhập nội dung" };
 
