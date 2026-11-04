@@ -1,30 +1,44 @@
 import "server-only";
-import { and, asc, desc, eq, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { comments, invites, meta, records, sprints, taskLogs, tasks, users } from "@/db/schema";
 
+// Mỗi bộ lọc là danh sách (rỗng = không lọc). Trong một bộ lọc: HOẶC; giữa các bộ lọc: VÀ.
+// Trên URL: giá trị ngăn bằng dấu phẩy, vd. ?area=BE,FE&priority=P0,P1
 export type TaskFilters = {
   q?: string;
-  sprint?: string;
-  area?: string;
-  priority?: string;
-  type?: string;
-  assignee?: string; // id | "me" | "none"
+  sprint: string[]; // mã đợt | "none"
+  area: string[];
+  priority: string[];
+  type: string[];
+  assignee: string[]; // id | "me" | "none"
 };
 
+export const LIST_FILTER_KEYS = ["sprint", "area", "priority", "type", "assignee"] as const;
+
 export function readFilters(sp: Record<string, string | string[] | undefined>): TaskFilters {
-  const one = (k: string) => {
+  const list = (k: string) => {
     const v = sp[k];
-    return (Array.isArray(v) ? v[0] : v) || undefined;
+    return [...new Set((Array.isArray(v) ? v : [v ?? ""]).flatMap((x) => x.split(",")).filter(Boolean))];
   };
+  const q = Array.isArray(sp.q) ? sp.q[0] : sp.q;
   return {
-    q: one("q"),
-    sprint: one("sprint"),
-    area: one("area"),
-    priority: one("priority"),
-    type: one("type"),
-    assignee: one("assignee"),
+    q: q || undefined,
+    sprint: list("sprint"),
+    area: list("area"),
+    priority: list("priority"),
+    type: list("type"),
+    assignee: list("assignee"),
   };
+}
+
+// cột thuộc danh sách, kèm "none" = cột rỗng
+function inListOrNull(col: typeof tasks.sprint, values: string[]) {
+  const real = values.filter((v) => v !== "none");
+  const parts: SQL[] = [];
+  if (real.length) parts.push(inArray(col, real));
+  if (values.includes("none")) parts.push(isNull(col));
+  return or(...parts)!;
 }
 
 export async function listTasks(f: TaskFilters, meId: number) {
@@ -33,14 +47,17 @@ export async function listTasks(f: TaskFilters, meId: number) {
     const like = `%${f.q}%`;
     where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
   }
-  if (f.sprint === "none") where.push(isNull(tasks.sprint));
-  else if (f.sprint) where.push(eq(tasks.sprint, f.sprint));
-  if (f.area) where.push(eq(tasks.area, f.area));
-  if (f.priority) where.push(eq(tasks.priority, f.priority));
-  if (f.type) where.push(eq(tasks.type, f.type));
-  if (f.assignee === "me") where.push(eq(tasks.assigneeId, meId));
-  else if (f.assignee === "none") where.push(isNull(tasks.assigneeId));
-  else if (f.assignee) where.push(eq(tasks.assigneeId, Number(f.assignee)));
+  if (f.sprint.length) where.push(inListOrNull(tasks.sprint, f.sprint));
+  if (f.area.length) where.push(inArray(tasks.area, f.area));
+  if (f.priority.length) where.push(inArray(tasks.priority, f.priority));
+  if (f.type.length) where.push(inArray(tasks.type, f.type));
+  if (f.assignee.length) {
+    const ids = f.assignee.flatMap((a) => (a === "me" ? [meId] : /^\d+$/.test(a) ? [Number(a)] : []));
+    const parts: SQL[] = [];
+    if (ids.length) parts.push(inArray(tasks.assigneeId, ids));
+    if (f.assignee.includes("none")) parts.push(isNull(tasks.assigneeId));
+    if (parts.length) where.push(or(...parts)!);
+  }
 
   return db
     .select({

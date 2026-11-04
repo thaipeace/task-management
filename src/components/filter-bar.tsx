@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { AREAS, PRIORITIES, TYPES } from "@/lib/constants";
 import type { TaskFilters } from "@/lib/queries";
 
@@ -11,8 +11,13 @@ type Props = {
   users: { id: number; name: string }[];
 };
 
-export function FilterBar({ filters, sprints, users }: Props) {
+type ListKey = Exclude<keyof TaskFilters, "q">;
+type Option = { value: string; label: string; short?: string };
+
+export function FilterBar({ filters: current, sprints, users }: Props) {
   const router = useRouter();
+  // hiện lựa chọn ngay khi bấm; bấm liên tiếp cộng dồn thay vì ghi đè nhau khi URL chưa kịp đổi
+  const [filters, setFilters] = useOptimistic(current);
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [q, setQ] = useState(filters.q ?? "");
@@ -20,8 +25,16 @@ export function FilterBar({ filters, sprints, users }: Props) {
   const apply = (patch: Partial<TaskFilters>) => {
     const next = { ...filters, ...patch };
     const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(next)) if (v) sp.set(k, v);
-    startTransition(() => router.replace(`${pathname}${sp.size ? `?${sp}` : ""}`));
+    for (const [k, v] of Object.entries(next)) {
+      const value = Array.isArray(v) ? v.join(",") : v;
+      if (value) sp.set(k, value);
+    }
+    // dấu phẩy giữ nguyên cho URL dễ đọc: ?area=BE,FE
+    const qs = sp.toString().replaceAll("%2C", ",");
+    startTransition(() => {
+      setFilters(next);
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`);
+    });
   };
 
   // tìm kiếm: chờ người dùng ngừng gõ
@@ -32,26 +45,16 @@ export function FilterBar({ filters, sprints, users }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  const select = (
-    key: keyof TaskFilters,
-    placeholder: string,
-    options: { value: string; label: string }[],
-  ) => (
-    <select
-      value={filters[key] ?? ""}
-      onChange={(e) => apply({ [key]: e.target.value || undefined })}
-      className={`input w-auto py-1 ${filters[key] ? "border-brand bg-blue-50 text-brand" : ""}`}
-    >
-      <option value="">{placeholder}</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+  const multi = (key: ListKey, label: string, options: Option[]) => (
+    <MultiSelect
+      label={label}
+      options={options}
+      selected={filters[key]}
+      onChange={(values) => apply({ [key]: values })}
+    />
   );
 
-  const active = Object.values(filters).some(Boolean);
+  const active = !!filters.q || (["sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -61,23 +64,30 @@ export function FilterBar({ filters, sprints, users }: Props) {
         placeholder="Tìm theo id, tiêu đề, mô tả…"
         className="input w-60"
       />
-      {select("sprint", "Mọi đợt", [
+      {multi("sprint", "Đợt", [
         ...sprints.map((s) => ({ value: s.code, label: s.code })),
-        { value: "none", label: "(Chưa xếp đợt)" },
+        { value: "none", label: "(Chưa xếp đợt)", short: "chưa xếp" },
       ])}
-      {select("area", "Mọi mảng", AREAS.map((a) => ({ value: a.value, label: a.value })))}
-      {select("priority", "Mọi ưu tiên", PRIORITIES.map((p) => ({ value: p.value, label: p.label })))}
-      {select("type", "Mọi loại", TYPES.map((t) => ({ value: t.value, label: `${t.icon} ${t.label}` })))}
-      {select("assignee", "Mọi người", [
-        { value: "me", label: "Việc của tôi" },
-        { value: "none", label: "Chưa giao" },
+      {multi("area", "Mảng", AREAS.map((a) => ({ value: a.value, label: a.label, short: a.value })))}
+      {multi(
+        "priority",
+        "Ưu tiên",
+        PRIORITIES.map((p) => ({ value: p.value, label: p.label, short: p.value })),
+      )}
+      {multi("type", "Loại", TYPES.map((t) => ({ value: t.value, label: `${t.icon} ${t.label}`, short: t.label })))}
+      {multi("assignee", "Người làm", [
+        { value: "me", label: "Việc của tôi", short: "tôi" },
+        { value: "none", label: "Chưa giao", short: "chưa giao" },
         ...users.map((u) => ({ value: String(u.id), label: u.name })),
       ])}
       {active && (
         <button
           onClick={() => {
             setQ("");
-            startTransition(() => router.replace(pathname));
+            startTransition(() => {
+              setFilters({ sprint: [], area: [], priority: [], type: [], assignee: [] });
+              router.replace(pathname);
+            });
           }}
           className="btn-ghost text-xs"
         >
@@ -85,6 +95,86 @@ export function FilterBar({ filters, sprints, users }: Props) {
         </button>
       )}
       {pending && <span className="text-xs text-slate-400">Đang lọc…</span>}
+    </div>
+  );
+}
+
+function MultiSelect({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: Option[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // bấm ra ngoài hoặc Esc thì đóng
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const toggle = (value: string) =>
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+
+  const names = options.filter((o) => selected.includes(o.value)).map((o) => o.short ?? o.label);
+  const summary = names.length === 0 ? "Tất cả" : names.length <= 2 ? names.join(", ") : `${names.length} mục`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={`input flex w-auto items-center gap-1.5 py-1 ${
+          selected.length ? "border-brand bg-blue-50 text-brand" : ""
+        }`}
+      >
+        <span className="text-slate-500">{label}:</span>
+        <span className="max-w-40 truncate font-medium">{summary}</span>
+        <span className="text-[10px] text-slate-400">▾</span>
+      </button>
+      {open && (
+        <div className="absolute left-0 z-20 mt-1 max-h-80 min-w-56 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg">
+          {options.map((o) => (
+            <label
+              key={o.value}
+              className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                checked={selected.includes(o.value)}
+                onChange={() => toggle(o.value)}
+                className="accent-brand"
+              />
+              <span className="whitespace-nowrap">{o.label}</span>
+            </label>
+          ))}
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="mt-1 w-full border-t border-slate-100 px-3 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-50"
+            >
+              Bỏ chọn tất cả
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
