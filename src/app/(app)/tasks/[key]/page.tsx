@@ -80,8 +80,6 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
           <Section title="Mô tả">
             {t.description ? <RichText text={t.description} /> : <Empty />}
           </Section>
-          {/* việc con chỉ một cấp: việc con không có danh sách việc con */}
-          {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} />}
 
           <ListSection title="Việc cần làm" items={t.steps} ordered />
           <ListSection title="Tiêu chí xong" items={t.doneCriteria} check />
@@ -116,7 +114,10 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
             </dl>
           </Section>
 
-          <Section title={`Bình luận (${comments.length})`}>
+          {/* việc con chỉ một cấp: việc con không có danh sách việc con */}
+          {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} />}
+
+          <CollapsibleSection title={`Bình luận (${comments.length})`} defaultOpen>
             <ul className="space-y-3">
               {comments.map((c) => (
                 <li key={c.id} className="flex gap-3">
@@ -142,9 +143,9 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
                 <button className="btn-primary mt-2">Gửi</button>
               </div>
             </form>
-          </Section>
+          </CollapsibleSection>
 
-          <Section title="Nhật ký">
+          <CollapsibleSection title={`Nhật ký (${logs.length})`}>
             <form action={addLog.bind(null, t.key)} className="mb-3 flex gap-2">
               <input name="text" required placeholder="Ghi một dòng nhật ký…" className="input" />
               <button className="btn-secondary shrink-0">Ghi</button>
@@ -157,7 +158,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
                 </li>
               ))}
             </ol>
-          </Section>
+          </CollapsibleSection>
         </div>
 
         <aside className="space-y-4">
@@ -230,6 +231,27 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="mb-2 text-sm font-semibold text-slate-700">{title}</h2>
       <div className="text-sm leading-relaxed text-slate-800">{children}</div>
     </section>
+  );
+}
+
+// <details> gốc của trình duyệt: thu gọn / mở không cần JavaScript
+function CollapsibleSection({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details open={defaultOpen} className="group">
+      <summary className="mb-2 flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-slate-700 select-none hover:text-slate-900 [&::-webkit-details-marker]:hidden">
+        <span className="inline-block w-3 text-xs text-slate-400 transition-transform group-open:rotate-90">▶</span>
+        {title}
+      </summary>
+      <div className="text-sm leading-relaxed text-slate-800">{children}</div>
+    </details>
   );
 }
 
