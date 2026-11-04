@@ -20,12 +20,12 @@ export default function EditTaskPage({ params }: PageProps<"/tasks/[key]/edit">)
 async function EditContent({ params }: Pick<PageProps<"/tasks/[key]/edit">, "params">) {
   await requireUser();
   const key = decodeURIComponent((await params).key);
-  const [[task], sprints, users] = await Promise.all([
+  const [[task], users] = await Promise.all([
     db.select().from(tasks).where(eq(tasks.key, key)),
-    listSprints(),
     listActiveUsers(),
   ]);
   if (!task) notFound();
+  const sprints = await listSprints(task.projectId);
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeader title={`Sửa ${task.key}`} />

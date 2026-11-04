@@ -4,6 +4,7 @@ import { EditableRecord, NewRecord } from "@/components/inline-forms";
 import { IdLinks, RichText } from "@/components/rich-text";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { getCurrentProject } from "@/lib/projects";
 import { getMeta, listRecords } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Rủi ro & quyết định" };
@@ -23,12 +24,13 @@ export default function RecordsPage() {
 }
 
 async function RecordsContent() {
-  const me = await requireUser();
+  const [me, project] = await Promise.all([requireUser(), getCurrentProject()]);
   const [risks, decisions, notes] = await Promise.all([
-    listRecords("risk"),
-    listRecords("decision"),
-    getMeta("ghi_chu_ngoai_pham_vi"),
+    listRecords(project.id, "risk"),
+    listRecords(project.id, "decision"),
+    getMeta(project.id, "ghi_chu_ngoai_pham_vi"),
   ]);
+  const pid = project.id;
   const canDelete = me.role === "admin";
   const s = (v: unknown) => (v == null ? "" : String(v));
 
@@ -37,11 +39,11 @@ async function RecordsContent() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Chờ quyết định ({decisions.length})</h2>
-          <NewRecord kind="decision" label="Thêm câu hỏi" />
+          <NewRecord projectId={pid} kind="decision" label="Thêm câu hỏi" />
         </div>
         <div className="space-y-3">
           {decisions.map((r) => (
-            <EditableRecord key={r.key} kind="decision" recordKey={r.key} data={r.data} canDelete={canDelete}>
+            <EditableRecord key={r.key} projectId={pid} kind="decision" recordKey={r.key} data={r.data} canDelete={canDelete}>
               <RichText text={s(r.data.cau_hoi)} className="block text-sm leading-relaxed" />
               <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                 <span>
@@ -61,11 +63,11 @@ async function RecordsContent() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Rủi ro đã chấp nhận ({risks.length})</h2>
-          <NewRecord kind="risk" label="Thêm rủi ro" />
+          <NewRecord projectId={pid} kind="risk" label="Thêm rủi ro" />
         </div>
         <div className="space-y-3">
           {risks.map((r) => (
-            <EditableRecord key={r.key} kind="risk" recordKey={r.key} data={r.data} canDelete={canDelete}>
+            <EditableRecord key={r.key} projectId={pid} kind="risk" recordKey={r.key} data={r.data} canDelete={canDelete}>
               <h3 className="font-semibold">{s(r.data.tieu_de)}</h3>
               <p className="mt-1 text-xs text-slate-500">{s(r.data.nguon)}</p>
               <RichText text={s(r.data.danh_gia)} className="mt-2 block text-sm leading-relaxed" />

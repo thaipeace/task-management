@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { invites, sessions, users } from "@/db/schema";
 import { hashToken, newToken, requireAdmin } from "@/lib/auth";
 import { importBacklog, type ImportSummary } from "@/lib/backlog";
+import { getProjectById } from "@/lib/projects";
 
 const INVITE_DAYS = 7;
 
@@ -62,6 +63,8 @@ export async function importAction(_: ImportState, form: FormData): Promise<Impo
   await requireAdmin();
   const file = form.get("file");
   const mode = form.get("mode") === "replace" ? "replace" : "merge";
+  const project = await getProjectById(Number(form.get("projectId")));
+  if (!project) return { error: "Chọn dự án để import" };
   if (!(file instanceof File) || file.size === 0) return { error: "Chọn tệp backlog.json" };
   if (file.size > 3.5 * 1024 * 1024) return { error: "Tệp quá lớn (tối đa 3.5 MB)" };
 
@@ -72,7 +75,7 @@ export async function importAction(_: ImportState, form: FormData): Promise<Impo
     return { error: "Tệp không phải JSON hợp lệ" };
   }
   try {
-    const summary = await importBacklog(json, mode);
+    const summary = await importBacklog(json, mode, project);
     refresh();
     return { summary };
   } catch (e) {

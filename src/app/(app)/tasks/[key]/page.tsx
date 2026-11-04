@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { addComment, addLog } from "@/app/actions/tasks";
+import { ProjectLink } from "@/components/project-switcher";
 import { IdLinks, RichText } from "@/components/rich-text";
 import { Subtasks } from "@/components/subtasks";
 import { AssigneeSelect, CommentBody, DeleteCommentButton, StatusSelect } from "@/components/task-quick";
@@ -23,7 +24,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
   const { key } = await params;
   const [data, users] = await Promise.all([getTask(decodeURIComponent(key)), listActiveUsers()]);
   if (!data) notFound();
-  const { task: t, logs, comments, subtasks, parent } = data;
+  const { task: t, logs, comments, subtasks, parent, project } = data;
   const fmt = new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "short",
@@ -32,16 +33,20 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-3 flex items-center gap-2 text-sm text-slate-500">
-        <Link href="/backlog" className="hover:underline">
-          Backlog
-        </Link>
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+        <ProjectLink code={project.code} href="/backlog" className="hover:underline">
+          <span title={project.name} className="font-semibold">{project.code}</span> · Backlog
+        </ProjectLink>
         <span>/</span>
         {t.sprint && (
           <>
-            <Link href={`/backlog?sprint=${encodeURIComponent(t.sprint)}`} className="hover:underline">
+            <ProjectLink
+              code={project.code}
+              href={`/backlog?sprint=${encodeURIComponent(t.sprint)}`}
+              className="hover:underline"
+            >
               {t.sprint}
-            </Link>
+            </ProjectLink>
             <span>/</span>
           </>
         )}

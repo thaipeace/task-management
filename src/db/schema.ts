@@ -1,11 +1,13 @@
 import {
   boolean,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   json,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -52,16 +54,39 @@ export const invites = pgTable("invites", {
   usedAt: timestamp("used_at", { withTimezone: true }),
 });
 
-// "dot" trong backlog.json
-export const sprints = pgTable("sprints", {
-  code: text("code").primaryKey(),
+// Dự án: mỗi dự án là một backlog riêng (đợt, việc, AR/QD, meta), import / export riêng
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  // mã ngắn, viết hoa (SIA) – không đổi sau khi tạo vì nằm trong id việc
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
   description: text("description").notNull().default(""),
-  position: integer("position").notNull().default(0),
+  // đứng trước id việc: "" cho SIA (giữ BE-001 như backlog.json cũ), "ABC-" cho dự án mới → ABC-BE-001
+  keyPrefix: text("key_prefix").notNull().default(""),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// "dem_id" trong backlog.json
+const projectRef = () =>
+  integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "restrict" });
+
+// "dot" trong backlog.json – mã đợt chỉ cần riêng trong một dự án
+export const sprints = pgTable(
+  "sprints",
+  {
+    projectId: projectRef(),
+    code: text("code").notNull(),
+    description: text("description").notNull().default(""),
+    position: integer("position").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.code] })],
+);
+
+// "dem_id" trong backlog.json – tiền tố đã gồm keyPrefix của dự án nên vẫn là khoá chung
 export const counters = pgTable("counters", {
   prefix: text("prefix").primaryKey(),
+  projectId: projectRef(),
   next: integer("next").notNull().default(1),
 });
 
@@ -70,15 +95,14 @@ export const tasks = pgTable(
   "tasks",
   {
     key: text("key").primaryKey(),
+    projectId: projectRef(),
     // thứ tự trong tệp backlog.json (việc mới nối cuối) – dùng khi export
     seq: serial("seq"),
     title: text("title").notNull(),
     area: text("area").notNull(),
     type: text("type").notNull(),
-    sprint: text("sprint").references(() => sprints.code, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
+    // khoá ngoại (project_id, sprint) ở dưới; xoá đợt thì action tự đưa việc về "chưa xếp đợt"
+    sprint: text("sprint"),
     priority: text("priority").notNull().default("P2"),
     status: text("status").notNull().default("moi"),
     estimate: text("estimate"),
@@ -114,6 +138,12 @@ export const tasks = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    foreignKey({
+      name: "tasks_sprint_fk",
+      columns: [t.projectId, t.sprint],
+      foreignColumns: [sprints.projectId, sprints.code],
+    }).onUpdate("cascade"),
+    index("tasks_project_idx").on(t.projectId),
     index("tasks_status_idx").on(t.status),
     index("tasks_sprint_idx").on(t.sprint),
     uniqueIndex("tasks_external_key_idx").on(t.externalKey),
@@ -169,6 +199,7 @@ export const apiTokens = pgTable("api_tokens", {
 
 export const records = pgTable("records", {
   key: text("key").primaryKey(),
+  projectId: projectRef(),
   kind: text("kind", { enum: ["risk", "decision"] }).notNull(),
   data: json("data").$type<Record<string, unknown>>().notNull(),
   position: integer("position").notNull().default(0),
@@ -176,12 +207,18 @@ export const records = pgTable("records", {
 });
 
 // _huong_dan, phien_ban_cau_truc, goc_ma, ghi_chu_ngoai_pham_vi
-export const meta = pgTable("meta", {
-  key: text("key").primaryKey(),
-  value: json("value"),
-});
+export const meta = pgTable(
+  "meta",
+  {
+    projectId: projectRef(),
+    key: text("key").notNull(),
+    value: json("value"),
+  },
+  (t) => [primaryKey({ columns: [t.projectId, t.key] })],
+);
 
 export type User = typeof users.$inferSelect;
+export type Project = typeof projects.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type Sprint = typeof sprints.$inferSelect;
 export type TaskRecord = typeof records.$inferSelect;

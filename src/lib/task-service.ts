@@ -1,7 +1,7 @@
 import "server-only";
 import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { taskLogs, tasks, users } from "@/db/schema";
+import { projects, taskLogs, tasks, users } from "@/db/schema";
 import { nextKey } from "./backlog";
 import { STATUSES, labelOf, today } from "./constants";
 
@@ -28,14 +28,15 @@ export function statusLog(from: string, to: string, actor: Actor) {
   return `Trạng thái: ${labelOf(STATUSES, from)} → ${labelOf(STATUSES, to)} (${actor.name})`;
 }
 
-// Việc con chỉ một cấp: cha phải tồn tại và không là việc con; việc đang có con không được thành việc con
-async function checkParent(parentKey: string, selfKey?: string) {
+// Việc con chỉ một cấp: cha phải tồn tại, cùng dự án và không là việc con; việc đang có con không được thành việc con
+async function checkParent(parentKey: string, projectId: number, selfKey?: string) {
   if (parentKey === selfKey) throw new TaskRuleError("Việc không thể là việc con của chính nó");
   const [parent] = await db
-    .select({ parentKey: tasks.parentKey })
+    .select({ parentKey: tasks.parentKey, projectId: tasks.projectId })
     .from(tasks)
     .where(eq(tasks.key, parentKey));
   if (!parent) throw new TaskRuleError(`Không có việc cha '${parentKey}'`);
+  if (parent.projectId !== projectId) throw new TaskRuleError(`${parentKey} thuộc dự án khác`);
   if (parent.parentKey) {
     throw new TaskRuleError(`${parentKey} đã là việc con của ${parent.parentKey} – việc con không có việc con`);
   }
@@ -47,9 +48,11 @@ async function checkParent(parentKey: string, selfKey?: string) {
 
 export async function createTaskCore(data: TaskData, actor: Actor, via = "") {
   const date = today();
-  if (data.parentKey) await checkParent(data.parentKey);
+  const [project] = await db.select().from(projects).where(eq(projects.id, data.projectId));
+  if (!project) throw new TaskRuleError("Không có dự án này");
+  if (data.parentKey) await checkParent(data.parentKey, data.projectId);
   return db.transaction(async (tx) => {
-    const key = await nextKey(tx, data.area);
+    const key = await nextKey(tx, project, data.area);
     let subOrder = 0;
     if (data.parentKey) {
       // việc con mới nằm cuối danh sách
@@ -86,8 +89,10 @@ export async function reorderSubtask(key: string, subOrder: number) {
   await db.update(tasks).set({ subOrder }).where(and(eq(tasks.key, key), sql`${tasks.parentKey} is not null`));
 }
 
-// Trả về false khi không có việc này
-export async function updateTaskCore(key: string, patch: Partial<TaskData>, actor: Actor) {
+// Trả về false khi không có việc này. Không chuyển việc sang dự án khác (id mang tiền tố dự án).
+export async function updateTaskCore(key: string, input: Partial<TaskData>, actor: Actor) {
+  const patch = { ...input };
+  delete patch.projectId;
   const [old] = await db.select().from(tasks).where(eq(tasks.key, key));
   if (!old) return false;
   const date = today();
@@ -101,7 +106,7 @@ export async function updateTaskCore(key: string, patch: Partial<TaskData>, acto
   }
   if (patch.parentKey !== undefined && patch.parentKey !== old.parentKey) {
     if (patch.parentKey) {
-      await checkParent(patch.parentKey, key);
+      await checkParent(patch.parentKey, old.projectId, key);
       logs.push(`Thành việc con của ${patch.parentKey} (${actor.name})`);
     } else {
       logs.push(`Tách khỏi việc cha ${old.parentKey} (${actor.name})`);

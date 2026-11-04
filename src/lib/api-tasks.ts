@@ -1,14 +1,14 @@
 import "server-only";
 import { and, asc, eq, ilike, inArray, isNull, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { comments, taskLogs, tasks, users } from "@/db/schema";
+import { comments, projects, taskLogs, tasks, users } from "@/db/schema";
 import { ApiError, assigneeEmails } from "./api";
 import { toBacklogTask } from "./backlog";
 
 export async function getApiTask(key: string) {
   const [t] = await db.select().from(tasks).where(eq(tasks.key, key));
   if (!t) throw new ApiError(404, `Không có việc '${key}'`);
-  const [logs, commentRows, emails, subtasks] = await Promise.all([
+  const [logs, commentRows, emails, subtasks, [project]] = await Promise.all([
     db
       .select({ ngay: taskLogs.date, ghi: taskLogs.text })
       .from(taskLogs)
@@ -32,8 +32,10 @@ export async function getApiTask(key: string) {
       .from(tasks)
       .where(eq(tasks.parentKey, key))
       .orderBy(asc(tasks.subOrder), asc(tasks.key)),
+    db.select({ code: projects.code }).from(projects).where(eq(projects.id, t.projectId)),
   ]);
   return {
+    du_an: project?.code ?? null,
     ...toBacklogTask(t, t.assigneeId ? (emails.get(t.assigneeId) ?? null) : null, logs),
     // việc con không có việc con nên không trả danh sách rỗng cho nó
     ...(t.parentKey ? {} : { viec_con: subtasks }),
@@ -42,6 +44,7 @@ export async function getApiTask(key: string) {
 }
 
 export type ListQuery = {
+  du_an?: number; // id dự án (route đổi từ mã); không có = mọi dự án
   trang_thai?: string[];
   dot?: string;
   mang?: string;
@@ -56,6 +59,7 @@ export type ListQuery = {
 
 export async function listApiTasks(f: ListQuery, meId: number) {
   const where: SQL[] = [];
+  if (f.du_an) where.push(eq(tasks.projectId, f.du_an));
   if (f.trang_thai?.length) where.push(inArray(tasks.status, f.trang_thai));
   if (f.dot === "none") where.push(isNull(tasks.sprint));
   else if (f.dot) where.push(eq(tasks.sprint, f.dot));
@@ -73,16 +77,17 @@ export async function listApiTasks(f: ListQuery, meId: number) {
     where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
   }
   const rows = await db
-    .select({ task: tasks, email: users.email })
+    .select({ task: tasks, email: users.email, project: projects.code })
     .from(tasks)
+    .innerJoin(projects, eq(projects.id, tasks.projectId))
     .leftJoin(users, eq(users.id, tasks.assigneeId))
     .where(where.length ? and(...where) : undefined)
     .orderBy(asc(tasks.seq))
     .limit(f.gioi_han);
   // danh sách không kèm nhật ký – lấy chi tiết qua GET /api/v1/tasks/{id}
-  return rows.map(({ task, email }) => {
+  return rows.map(({ task, email, project }) => {
     const full: Partial<ReturnType<typeof toBacklogTask>> = toBacklogTask(task, email, []);
     delete full.nhat_ky;
-    return full;
+    return { du_an: project, ...full };
   });
 }

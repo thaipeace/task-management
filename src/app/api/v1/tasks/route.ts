@@ -1,15 +1,26 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
-import { ApiError, createTaskSchema, json, parseBody, readJson, toTaskData, withApiAuth } from "@/lib/api";
+import {
+  ApiError,
+  createTaskSchema,
+  json,
+  parseBody,
+  readJson,
+  resolveProject,
+  toTaskData,
+  withApiAuth,
+} from "@/lib/api";
 import { getApiTask, listApiTasks } from "@/lib/api-tasks";
 import { createTaskCore, type TaskData } from "@/lib/task-service";
 
 export const GET = withApiAuth(async (req, me) => {
   const sp = new URL(req.url).searchParams;
   const limit = Number(sp.get("gioi_han") ?? 200);
+  const code = sp.get("du_an");
   const viec = await listApiTasks(
     {
+      du_an: code ? (await resolveProject(code)).id : undefined,
       trang_thai: sp.get("trang_thai")?.split(",").filter(Boolean),
       dot: sp.get("dot") ?? undefined,
       mang: sp.get("mang") ?? undefined,
@@ -28,8 +39,9 @@ export const GET = withApiAuth(async (req, me) => {
 
 // Tạo việc. Có "khoa_ngoai" mà đã có việc mang khoá đó → trả việc cũ (200, tao_moi: false), không tạo trùng.
 export const POST = withApiAuth(async (req, me) => {
-  const input = parseBody(createTaskSchema, await readJson(req));
-  const data = await toTaskData(input);
+  const { du_an, ...input } = parseBody(createTaskSchema, await readJson(req));
+  const project = await resolveProject(du_an);
+  const data = await toTaskData(input, project.id);
 
   const existingKey = async () => {
     if (!input.khoa_ngoai) return null;
@@ -47,6 +59,7 @@ export const POST = withApiAuth(async (req, me) => {
     priority: "P2",
     status: "moi",
     ...data,
+    projectId: project.id,
     title: input.tieu_de,
     area: input.mang,
   };

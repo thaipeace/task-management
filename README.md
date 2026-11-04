@@ -5,6 +5,7 @@ Next.js 16 (App Router, Server Actions) · Drizzle ORM · Postgres (Neon) · Ver
 
 ## Tính năng
 
+- **Dự án**: mỗi dự án là một backlog riêng (đợt, việc, AR/QD, import / export riêng); đổi dự án ở góc trên thanh bên. Quản trị viên thêm dự án ở **Quản trị → Dự án**. Dự án đầu tiên `SIA` (SirobyApp) giữ id cũ `BE-001`; dự án thêm sau có id kèm mã, vd. `ABC-BE-001`. Người dùng dùng chung mọi dự án.
 - **Bảng** kéo thả theo trạng thái (`moi → san-sang → dang-lam → cho-duyet → xong`, cột `huy` ẩn/hiện). Mỗi lần đổi trạng thái hoặc người làm tự thêm một dòng `nhat_ky`.
 - **Backlog** nhóm theo đợt (`dot`), sắp theo ưu tiên; lọc theo đợt / mảng / ưu tiên / loại / người làm, tìm theo id, tiêu đề, mô tả.
 - **Chi tiết việc**: đủ mọi trường của `viec` (bằng chứng, việc cần làm, tiêu chí xong, kiểm thử, rủi ro, cần phê duyệt, phụ thuộc, liên quan…), bình luận, nhật ký. Id dạng `BE-001`, `QD-002` trong văn bản tự thành liên kết.

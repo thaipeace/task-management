@@ -5,7 +5,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { comments, records, sprints, taskLogs, tasks } from "@/db/schema";
+import { comments, projects, records, sprints, taskLogs, tasks } from "@/db/schema";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { nextKey } from "@/lib/backlog";
 import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, STATUSES, TYPES, today } from "@/lib/constants";
@@ -110,11 +110,15 @@ function parseTaskForm(form: FormData) {
   } as const;
 }
 
-export async function createTask(_: TaskFormState, form: FormData): Promise<TaskFormState> {
+export async function createTask(
+  projectId: number,
+  _: TaskFormState,
+  form: FormData,
+): Promise<TaskFormState> {
   const me = await requireUser();
   const parsed = parseTaskForm(form);
   if ("error" in parsed) return { error: parsed.error };
-  const key = await createTaskCore(parsed.data, me);
+  const key = await createTaskCore({ ...parsed.data, projectId }, me);
   redirect(`/tasks/${key}`);
 }
 
@@ -212,6 +216,7 @@ export async function addSubtask(
       {
         title,
         parentKey,
+        projectId: parent.projectId,
         area: parent.area,
         type: parent.type,
         sprint: parent.sprint,
@@ -245,6 +250,7 @@ export async function deleteComment(id: number) {
 // ---- AR / QD ----
 
 export async function saveRecord(
+  projectId: number,
   kind: "risk" | "decision",
   key: string | null,
   _: TaskFormState,
@@ -279,9 +285,11 @@ export async function saveRecord(
       .set({ data: { ...old.data, ...data }, updatedAt: new Date() })
       .where(eq(records.key, key));
   } else {
+    const [project] = await db.select().from(projects).where(eq(projects.id, projectId));
+    if (!project) return { error: "Không có dự án này" };
     await db.transaction(async (tx) => {
-      const newKey = await nextKey(tx, RECORD_KINDS[kind].prefix);
-      await tx.insert(records).values({ key: newKey, kind, data, position: Date.now() % 1e9 });
+      const newKey = await nextKey(tx, project, RECORD_KINDS[kind].prefix);
+      await tx.insert(records).values({ key: newKey, projectId, kind, data, position: Date.now() % 1e9 });
     });
   }
   refresh();
@@ -297,6 +305,7 @@ export async function deleteRecord(key: string) {
 // ---- Đợt ----
 
 export async function saveSprint(
+  projectId: number,
   originalCode: string | null,
   _: TaskFormState,
   form: FormData,
@@ -309,9 +318,12 @@ export async function saveSprint(
   }
   try {
     if (originalCode) {
-      await db.update(sprints).set({ code, description }).where(eq(sprints.code, originalCode));
+      await db
+        .update(sprints)
+        .set({ code, description })
+        .where(and(eq(sprints.projectId, projectId), eq(sprints.code, originalCode)));
     } else {
-      await db.insert(sprints).values({ code, description, position: Date.now() % 1e9 });
+      await db.insert(sprints).values({ projectId, code, description, position: Date.now() % 1e9 });
     }
   } catch {
     return { error: "Mã đợt đã tồn tại" };
@@ -320,8 +332,15 @@ export async function saveSprint(
   return { ok: "Đã lưu" };
 }
 
-export async function deleteSprint(code: string) {
+export async function deleteSprint(projectId: number, code: string) {
   await requireAdmin();
-  await db.delete(sprints).where(eq(sprints.code, code));
+  await db.transaction(async (tx) => {
+    // việc trong đợt về "chưa xếp đợt"
+    await tx
+      .update(tasks)
+      .set({ sprint: null })
+      .where(and(eq(tasks.projectId, projectId), eq(tasks.sprint, code)));
+    await tx.delete(sprints).where(and(eq(sprints.projectId, projectId), eq(sprints.code, code)));
+  });
   refresh();
 }

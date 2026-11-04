@@ -13,6 +13,8 @@ API để tạo, đọc và sửa việc bằng lệnh hoặc từ project khác
    Đừng commit tệp này, đừng dán token vào chat. Mất token thì thu hồi rồi tạo token mới.
 3. Mọi request gửi header `Authorization: Bearer $TM_API_TOKEN`.
 
+Tuỳ chọn: thêm `TM_PROJECT=SIA` để CLI mặc định làm việc trong một dự án (xem **Dự án** bên dưới).
+
 Token có quyền như tài khoản đã tạo ra nó. Tài khoản bị khoá hoặc token bị thu hồi thì API trả `401` ngay. Nhật ký ghi tên người chủ token.
 
 ## Cách nhanh nhất: CLI `scripts/tm.mjs` (trong thư mục skill)
@@ -34,6 +36,16 @@ node .claude/skills/task-board/scripts/tm.mjs log BE-001 "Chạy lại may-chu.m
 - `--trường=null` xoá giá trị của trường đó.
 - Muốn gửi nguyên một object JSON thì dùng `--json-body='{…}'` hoặc `--file=viec.json`.
 
+## Dự án
+
+Việc, đợt và AR/QD thuộc từng dự án. Người dùng và token dùng chung cho mọi dự án.
+
+- Dự án SIA (SirobyApp, dự án đầu tiên và là **mặc định**) giữ id cũ: `BE-016`, `FE-010`…
+- Dự án tạo sau dùng id có mã dự án đứng trước: dự án `ABC` → `ABC-BE-001`, `ABC-QD-001`.
+- `POST /tasks` nhận `du_an` (mã dự án). Không gửi thì việc vào dự án mặc định. Việc không chuyển được sang dự án khác, nên `PATCH` không nhận `du_an`.
+- `dot` và `viec_cha` phải thuộc cùng dự án với việc.
+- Chỉ admin thêm được dự án, trên web ở trang **Quản trị → Dự án**.
+
 ## Endpoint
 
 Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, API trả `{ "loi": "…", "chi_tiet"?: […] }`.
@@ -41,7 +53,8 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | Lệnh | Đường dẫn | Việc |
 | --- | --- | --- |
 | GET | `/me` | Tài khoản của token: `{ id, email, name, role }` |
-| GET | `/sprints` | `{ dot: [{ ma, mo_ta }] }` |
+| GET | `/projects` | `{ du_an: [{ ma, ten, mo_ta, tien_to_id, mac_dinh }] }` |
+| GET | `/sprints` | `{ dot: [{ du_an, ma, mo_ta }] }`. Thêm `?du_an=SIA` để lấy đợt của một dự án |
 | GET | `/tasks` | Danh sách việc, không kèm `nhat_ky` |
 | POST | `/tasks` | Tạo việc |
 | GET | `/tasks/{id}` | Một việc, kèm `nhat_ky`, `binh_luan` (có `sua_luc` nếu bình luận đã sửa) và `viec_con` |
@@ -55,6 +68,7 @@ API không có lệnh xoá việc. Theo quy ước của backlog, việc bỏ th
 
 Tham số query, tất cả đều không bắt buộc:
 
+- `du_an`: mã dự án. Không gửi thì lấy việc của mọi dự án.
 - `trang_thai`: một hoặc nhiều giá trị, ngăn bằng dấu phẩy, vd. `moi,san-sang`.
 - `dot`: mã đợt, hoặc `none` để lấy việc chưa xếp đợt.
 - `mang`, `uu_tien`, `loai`.
@@ -70,11 +84,12 @@ Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
 
 | Trường | Kiểu | Giá trị |
 | --- | --- | --- |
-| `id` | chỉ đọc | Cấp tự động theo `mang`: `BE-016`, `FE-011`… |
+| `id` | chỉ đọc | Cấp tự động theo dự án và `mang`: `BE-016`, `FE-011`… (SIA) hoặc `ABC-BE-001` |
+| `du_an` | mã dự án | Chỉ gửi khi tạo. Mặc định là dự án đầu tiên (SIA). Có trong mọi kết quả |
 | `tieu_de` | string | **Bắt buộc khi tạo.** Một dòng, nói kết quả cần đạt |
 | `mang` | enum | **Bắt buộc khi tạo.** `BE` \| `FE` \| `OPS` \| `DOC` |
 | `loai` | enum | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu`. Mặc định `loi` |
-| `dot` | string \| null | Mã đợt phải có sẵn (xem `/sprints`) |
+| `dot` | string \| null | Mã đợt phải có sẵn trong dự án của việc (xem `/sprints?du_an=…`) |
 | `uu_tien` | enum | `P0` \| `P1` \| `P2` \| `P3`. Mặc định `P2` |
 | `trang_thai` | enum | `moi` \| `san-sang` \| `dang-lam` \| `cho-duyet` \| `xong` \| `huy`. Mặc định `moi` |
 | `uoc_luong` | enum \| null | `S` \| `M` \| `L` |
@@ -96,7 +111,7 @@ Gửi trường không có trong bảng → `400`. Đổi `trang_thai` hoặc `n
 
 | Mã | Khi nào |
 | --- | --- |
-| `400` | Body không phải JSON, sai kiểu hoặc giá trị, gửi trường lạ, đợt không có, email người làm không có |
+| `400` | Body không phải JSON, sai kiểu hoặc giá trị, gửi trường lạ, dự án / đợt không có, việc cha thuộc dự án khác, email người làm không có |
 | `401` | Thiếu token, token sai hoặc đã thu hồi, tài khoản bị khoá |
 | `404` | Không có việc mang id đó |
 | `409` | `khoa_ngoai` đã thuộc về việc khác |

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { AreaBadge, Avatar, Loading, PageHeader, PriorityBadge, StatusBadge, SubtaskProgress, TypeIcon } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { getCurrentProject } from "@/lib/projects";
 import { listActiveUsers, listSprints, listTasks, readFilters, type TaskRow } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Backlog" };
@@ -30,11 +31,11 @@ export default function BacklogPage({ searchParams }: PageProps<"/backlog">) {
 }
 
 async function BacklogContent({ searchParams }: Pick<PageProps<"/backlog">, "searchParams">) {
-  const me = await requireUser();
+  const [me, project] = await Promise.all([requireUser(), getCurrentProject()]);
   const filters = readFilters(await searchParams);
   const [tasks, sprints, users] = await Promise.all([
-    listTasks(filters, me.id),
-    listSprints(),
+    listTasks(project.id, filters, me.id),
+    listSprints(project.id),
     listActiveUsers(),
   ]);
 
@@ -107,7 +108,7 @@ function SprintGroup({
               className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50"
             >
               <TypeIcon type={t.type} />
-              <span className="w-16 shrink-0 text-xs font-semibold text-slate-500">{t.key}</span>
+              <span className="min-w-16 shrink-0 text-xs font-semibold whitespace-nowrap text-slate-500">{t.key}</span>
               <span className={`min-w-0 flex-1 truncate ${t.status === "huy" ? "line-through text-slate-400" : ""}`}>
                 {t.title}
               </span>

@@ -5,6 +5,7 @@ import { Board } from "@/components/board";
 import { FilterBar } from "@/components/filter-bar";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { getCurrentProject } from "@/lib/projects";
 import { listActiveUsers, listSprints, listTasks, readFilters } from "@/lib/queries";
 
 export const metadata: Metadata = { title: "Bảng" };
@@ -29,11 +30,11 @@ export default function BoardPage({ searchParams }: PageProps<"/board">) {
 }
 
 async function BoardContent({ searchParams }: Pick<PageProps<"/board">, "searchParams">) {
-  const me = await requireUser();
+  const [me, project] = await Promise.all([requireUser(), getCurrentProject()]);
   const filters = readFilters(await searchParams);
   const [tasks, sprints, users] = await Promise.all([
-    listTasks(filters, me.id),
-    listSprints(),
+    listTasks(project.id, filters, me.id),
+    listSprints(project.id),
     listActiveUsers(),
   ]);
   return (

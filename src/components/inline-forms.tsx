@@ -11,13 +11,18 @@ function Msg({ state }: { state: TaskFormState }) {
 }
 
 export function SprintForm({
+  projectId,
   sprint,
   canDelete,
 }: {
+  projectId: number;
   sprint?: { code: string; description: string };
   canDelete?: boolean;
 }) {
-  const [state, onSubmit, pending] = useFormAction(saveSprint.bind(null, sprint?.code ?? null), undefined);
+  const [state, onSubmit, pending] = useFormAction(
+    saveSprint.bind(null, projectId, sprint?.code ?? null),
+    undefined,
+  );
   const [deleting, startDelete] = useTransition();
   return (
     <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
@@ -43,7 +48,7 @@ export function SprintForm({
           disabled={deleting}
           onClick={() => {
             if (confirm(`Xoá đợt ${sprint.code}? Các việc trong đợt chuyển về "Chưa xếp đợt".`)) {
-              startDelete(() => deleteSprint(sprint.code));
+              startDelete(() => deleteSprint(projectId, sprint.code));
             }
           }}
           className="btn-danger"
@@ -59,12 +64,14 @@ export function SprintForm({
 type RecordData = Record<string, unknown>;
 
 export function RecordForm({
+  projectId,
   kind,
   recordKey,
   data,
   canDelete,
   onDone,
 }: {
+  projectId: number;
   kind: "risk" | "decision";
   recordKey: string | null;
   data?: RecordData;
@@ -73,7 +80,7 @@ export function RecordForm({
 }) {
   const [state, onSubmit, pending] = useFormAction(
     async (s: TaskFormState, f: FormData) => {
-      const r = await saveRecord(kind, recordKey, s, f);
+      const r = await saveRecord(projectId, kind, recordKey, s, f);
       if (r?.ok) onDone?.();
       return r;
     },
@@ -147,12 +154,14 @@ export function RecordForm({
 }
 
 export function EditableRecord({
+  projectId,
   kind,
   recordKey,
   data,
   canDelete,
   children,
 }: {
+  projectId: number;
   kind: "risk" | "decision";
   recordKey: string;
   data: RecordData;
@@ -174,6 +183,7 @@ export function EditableRecord({
       </div>
       {editing ? (
         <RecordForm
+          projectId={projectId}
           kind={kind}
           recordKey={recordKey}
           data={data}
@@ -187,7 +197,15 @@ export function EditableRecord({
   );
 }
 
-export function NewRecord({ kind, label }: { kind: "risk" | "decision"; label: string }) {
+export function NewRecord({
+  projectId,
+  kind,
+  label,
+}: {
+  projectId: number;
+  kind: "risk" | "decision";
+  label: string;
+}) {
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
@@ -198,7 +216,7 @@ export function NewRecord({ kind, label }: { kind: "risk" | "decision"; label: s
   }
   return (
     <div className="card p-4">
-      <RecordForm kind={kind} recordKey={null} onDone={() => setOpen(false)} />
+      <RecordForm projectId={projectId} kind={kind} recordKey={null} onDone={() => setOpen(false)} />
     </div>
   );
 }

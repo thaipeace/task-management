@@ -3,9 +3,10 @@ import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { apiTokens, sprints, users } from "@/db/schema";
+import { apiTokens, sprints, users, type Project } from "@/db/schema";
 import { hashToken, newToken, type CurrentUser } from "./auth";
 import { AREAS, ESTIMATES, PRIORITIES, STATUSES, TYPES } from "./constants";
+import { getDefaultProject, getProjectByCode } from "./projects";
 import { TaskRuleError, type TaskData } from "./task-service";
 
 export const TOKEN_PREFIX = "tm_";
@@ -129,8 +130,9 @@ const taskFields = {
   viec_cha: z.string().trim().min(1).nullable(),
 };
 
+// du_an chỉ có khi tạo: việc không chuyển dự án được (id mang tiền tố dự án)
 export const createTaskSchema = z
-  .object(taskFields)
+  .object({ ...taskFields, du_an: z.string().trim().min(1) })
   .partial()
   .required({ tieu_de: true, mang: true })
   .strict();
@@ -151,8 +153,16 @@ export function parseBody<T extends z.ZodTypeAny>(schema: T, body: unknown): z.i
 
 type TaskInput = z.infer<typeof patchTaskSchema>;
 
-// Đổi tên trường API → cột DB; kiểm tra email người làm và mã đợt có thật
-export async function toTaskData(input: TaskInput): Promise<Partial<TaskData>> {
+// du_an (mã) → dự án; không gửi thì là dự án mặc định (dự án tạo đầu tiên)
+export async function resolveProject(code: string | null | undefined): Promise<Project> {
+  if (!code) return getDefaultProject();
+  const p = await getProjectByCode(code);
+  if (!p) throw new ApiError(400, `Không có dự án '${code}' – xem GET /api/v1/projects`);
+  return p;
+}
+
+// Đổi tên trường API → cột DB; kiểm tra email người làm và mã đợt có thật trong dự án
+export async function toTaskData(input: TaskInput, projectId: number): Promise<Partial<TaskData>> {
   const out: Partial<TaskData> = {};
   const map: [keyof TaskInput, keyof TaskData][] = [
     ["tieu_de", "title"],
@@ -181,8 +191,11 @@ export async function toTaskData(input: TaskInput): Promise<Partial<TaskData>> {
   }
 
   if (input.dot) {
-    const [s] = await db.select({ code: sprints.code }).from(sprints).where(eq(sprints.code, input.dot));
-    if (!s) throw new ApiError(400, `Không có đợt '${input.dot}' – xem GET /api/v1/sprints`);
+    const [s] = await db
+      .select({ code: sprints.code })
+      .from(sprints)
+      .where(and(eq(sprints.projectId, projectId), eq(sprints.code, input.dot)));
+    if (!s) throw new ApiError(400, `Không có đợt '${input.dot}' trong dự án – xem GET /api/v1/sprints`);
   }
   if (input.nguoi_lam !== undefined) {
     if (input.nguoi_lam === null) out.assigneeId = null;

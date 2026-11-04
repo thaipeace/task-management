@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { comments, invites, meta, records, sprints, taskLogs, tasks, users } from "@/db/schema";
+import { comments, invites, meta, projects, records, sprints, taskLogs, tasks, users } from "@/db/schema";
 
 // Mỗi bộ lọc là danh sách (rỗng = không lọc). Trong một bộ lọc: HOẶC; giữa các bộ lọc: VÀ.
 // Trên URL: giá trị ngăn bằng dấu phẩy, vd. ?area=BE,FE&priority=P0,P1
@@ -42,8 +42,8 @@ function inListOrNull(col: typeof tasks.sprint, values: string[]) {
 }
 
 // Bảng / backlog: chỉ việc lớn (việc con nằm trong trang của việc cha), kèm tiến độ việc con
-export async function listTasks(f: TaskFilters, meId: number) {
-  const where: SQL[] = [isNull(tasks.parentKey)];
+export async function listTasks(projectId: number, f: TaskFilters, meId: number) {
+  const where: SQL[] = [eq(tasks.projectId, projectId), isNull(tasks.parentKey)];
   if (f.q) {
     const like = `%${f.q}%`;
     where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
@@ -90,7 +90,7 @@ export type TaskRow = Awaited<ReturnType<typeof listTasks>>[number];
 export async function getTask(key: string) {
   const [row] = await db.select().from(tasks).where(eq(tasks.key, key));
   if (!row) return null;
-  const [logs, commentRows, subtasks, parent] = await Promise.all([
+  const [logs, commentRows, subtasks, parent, [project]] = await Promise.all([
     db
       .select({ id: taskLogs.id, date: taskLogs.date, text: taskLogs.text, userName: users.name })
       .from(taskLogs)
@@ -130,12 +130,17 @@ export async function getTask(key: string) {
           .where(eq(tasks.key, row.parentKey))
           .then((r) => r[0] ?? null)
       : null,
+    db.select().from(projects).where(eq(projects.id, row.projectId)),
   ]);
-  return { task: row, logs, comments: commentRows, subtasks, parent };
+  return { task: row, logs, comments: commentRows, subtasks, parent, project };
 }
 
-export function listSprints() {
-  return db.select().from(sprints).orderBy(asc(sprints.position), asc(sprints.code));
+export function listSprints(projectId: number) {
+  return db
+    .select()
+    .from(sprints)
+    .where(eq(sprints.projectId, projectId))
+    .orderBy(asc(sprints.position), asc(sprints.code));
 }
 
 export function listActiveUsers() {
@@ -158,15 +163,15 @@ export function listPendingInvites() {
     .orderBy(desc(invites.createdAt));
 }
 
-export function listRecords(kind: "risk" | "decision") {
+export function listRecords(projectId: number, kind: "risk" | "decision") {
   return db
     .select()
     .from(records)
-    .where(eq(records.kind, kind))
+    .where(and(eq(records.projectId, projectId), eq(records.kind, kind)))
     .orderBy(asc(records.position), asc(records.key));
 }
 
-export async function sprintStats() {
+export async function sprintStats(projectId: number) {
   return db
     .select({
       sprint: tasks.sprint,
@@ -174,10 +179,14 @@ export async function sprintStats() {
       n: sql<number>`count(*)::int`,
     })
     .from(tasks)
+    .where(eq(tasks.projectId, projectId))
     .groupBy(tasks.sprint, tasks.status);
 }
 
-export async function getMeta(key: string) {
-  const [row] = await db.select().from(meta).where(eq(meta.key, key));
+export async function getMeta(projectId: number, key: string) {
+  const [row] = await db
+    .select()
+    .from(meta)
+    .where(and(eq(meta.projectId, projectId), eq(meta.key, key)));
   return row?.value ?? null;
 }

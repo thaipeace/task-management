@@ -5,11 +5,13 @@ description: Tạo, xem, cập nhật việc (task) trên Task Board – backlog
 
 # Task Board
 
-Task Board quản lý backlog kỹ thuật (việc `BE-…`, `FE-…`, `OPS-…`, `DOC-…`). Skill này điều khiển nó qua REST API bằng CLI `scripts/tm.mjs`, không cần cài gói nào (Node ≥ 20).
+Task Board quản lý backlog kỹ thuật, chia theo **dự án**. Dự án SIA (SirobyApp) dùng id `BE-…`, `FE-…`, `OPS-…`, `DOC-…`. Dự án tạo sau dùng id có mã dự án đứng trước, vd. `ABC-BE-001`. Skill này điều khiển Task Board qua REST API bằng CLI `scripts/tm.mjs`, không cần cài gói nào (Node ≥ 20).
 
 ## Chuẩn bị (một lần)
 
 CLI cần hai biến `TM_API_URL` và `TM_API_TOKEN`. Nó đọc từ biến môi trường, hoặc tự nạp `.env.local` / `.env` ở thư mục đang chạy.
+
+Nên đặt thêm `TM_PROJECT=<mã dự án>` (vd. `TM_PROJECT=SIA`) trong `.env.local`. Khi đó `create`, `list` và `sprints` tự làm việc trong dự án đó. Không đặt thì `create` vào dự án mặc định (dự án tạo đầu tiên), còn `list` / `sprints` lấy mọi dự án. Cờ `--du_an=…` ghi đè biến này.
 
 Kiểm tra: `node .claude/skills/task-board/scripts/tm.mjs me`
 
@@ -27,7 +29,8 @@ Chạy từ gốc project và luôn gõ đủ `node .claude/skills/task-board/sc
 
 ```bash
 node .claude/skills/task-board/scripts/tm.mjs me                                    # tài khoản của token
-node .claude/skills/task-board/scripts/tm.mjs sprints                               # mã đợt hợp lệ cho trường dot
+node .claude/skills/task-board/scripts/tm.mjs projects                              # mã dự án hợp lệ cho --du_an
+node .claude/skills/task-board/scripts/tm.mjs sprints [--du_an=SIA]                 # mã đợt hợp lệ cho trường dot
 node .claude/skills/task-board/scripts/tm.mjs list --trang_thai=moi,dang-lam --mang=BE --uu_tien=P1 --q="otp"   # thêm --json để lấy JSON
 node .claude/skills/task-board/scripts/tm.mjs get BE-001                            # đủ trường + nhat_ky + binh_luan
 node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="…" --mang=BE [--loai=loi] [--uu_tien=P1] [--dot=D1-…] [--mo_ta="…"] \
@@ -64,7 +67,8 @@ Giá trị hợp lệ:
 
 - **Không xoá việc.** Việc bỏ đi thì `--trang_thai=huy`.
 - Đổi `trang_thai` hoặc `nguoi_lam` thì hệ thống tự ghi nhật ký. Muốn ghi thêm vì sao đổi thì dùng `log`.
-- `dot` phải là mã có trong `node .claude/skills/task-board/scripts/tm.mjs sprints`. `nguoi_lam` phải là email của người dùng đã có trong hệ thống.
+- Mỗi việc thuộc một dự án, chọn lúc tạo, **không chuyển được** sang dự án khác. `dot` và `viec_cha` phải cùng dự án với việc. Kết quả `get` / `list` có trường `du_an`.
+- `dot` phải là mã có trong `node .claude/skills/task-board/scripts/tm.mjs sprints --du_an=<dự án>`. `nguoi_lam` phải là email của người dùng đã có trong hệ thống.
 - `tieu_de` viết một dòng, nói **kết quả cần đạt**, không chỉ tả triệu chứng.
 - Việc chạm tiền, bản thật, website hay dữ liệu của bé: đặt `--json-body` có `"can_phe_duyet":{"ai":"…","ly_do":"…"}`.
 

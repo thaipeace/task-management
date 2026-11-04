@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -11,6 +11,7 @@ import {
   tasks,
   users,
   type Approval,
+  type Project,
   type Related,
   type Task,
 } from "@/db/schema";
@@ -108,14 +109,16 @@ export type ImportSummary = {
   logs: number;
 };
 
+// "BE-012" → BE / 12; "ABC-BE-012" (dự án có keyPrefix) → ABC-BE / 12
 function idNumber(key: string) {
-  const m = /^([A-Z]+)-(\d+)$/.exec(key);
+  const m = /^([A-Z][A-Z0-9-]*)-(\d+)$/.exec(key);
   return m ? { prefix: m[1], n: Number(m[2]) } : null;
 }
 
 export async function importBacklog(
   raw: unknown,
   mode: "merge" | "replace",
+  project: Pick<Project, "id" | "code" | "keyPrefix">,
 ): Promise<ImportSummary> {
   const parsed = backlogSchema.safeParse(raw);
   if (!parsed.success) {
@@ -125,26 +128,52 @@ export async function importBacklog(
   const data = parsed.data;
   const rawObj = raw as Record<string, unknown>;
   const date = today();
+  const pid = project.id;
+
+  // id là khoá chung của mọi dự án: dự án có keyPrefix chỉ nhận id mang tiền tố của nó
+  const ids = [...data.viec.map((t) => t.id), ...data.chap_nhan_rui_ro.map((r) => r.id), ...data.cho_quyet_dinh.map((r) => r.id)];
+  if (project.keyPrefix) {
+    const bad = ids.find((id) => !id.startsWith(project.keyPrefix));
+    if (bad) throw new Error(`Id ${bad} không thuộc dự án ${project.code} – id trong dự án này phải bắt đầu bằng ${project.keyPrefix}`);
+  }
 
   return db.transaction(async (tx) => {
+    if (ids.length) {
+      const [taken] = [
+        ...(await tx
+          .select({ key: tasks.key, projectId: tasks.projectId })
+          .from(tasks)
+          .where(and(inArray(tasks.key, ids), ne(tasks.projectId, pid)))
+          .limit(1)),
+        ...(await tx
+          .select({ key: records.key, projectId: records.projectId })
+          .from(records)
+          .where(and(inArray(records.key, ids), ne(records.projectId, pid)))
+          .limit(1)),
+      ];
+      if (taken) throw new Error(`Id ${taken.key} đã thuộc dự án khác – chọn đúng dự án trước khi import`);
+    }
+
     if (mode === "replace") {
-      await tx.delete(tasks); // xoá kèm nhat_ky + bình luận (cascade)
-      await tx.delete(records);
-      await tx.delete(sprints);
-      await tx.delete(counters);
-      await tx.delete(meta);
+      // xoá việc con trước để khoá ngoại việc cha không vướng; nhat_ky + bình luận xoá theo (cascade)
+      await tx.delete(tasks).where(and(eq(tasks.projectId, pid), sql`${tasks.parentKey} is not null`));
+      await tx.delete(tasks).where(eq(tasks.projectId, pid));
+      await tx.delete(records).where(eq(records.projectId, pid));
+      await tx.delete(sprints).where(eq(sprints.projectId, pid));
+      await tx.delete(counters).where(eq(counters.projectId, pid));
+      await tx.delete(meta).where(eq(meta.projectId, pid));
     }
 
     // meta: mọi khoá cấp cao không có bảng riêng, cùng thứ tự khoá để export y như cũ
     const metaRows = Object.keys(rawObj)
       .filter((k) => !STRUCTURED.includes(k))
-      .map((k) => ({ key: k, value: rawObj[k] }));
-    metaRows.push({ key: ORDER_KEY, value: Object.keys(rawObj) });
+      .map((k) => ({ projectId: pid, key: k, value: rawObj[k] }));
+    metaRows.push({ projectId: pid, key: ORDER_KEY, value: Object.keys(rawObj) });
     for (const row of metaRows) {
       await tx
         .insert(meta)
         .values(row)
-        .onConflictDoUpdate({ target: meta.key, set: { value: row.value } });
+        .onConflictDoUpdate({ target: [meta.projectId, meta.key], set: { value: row.value } });
     }
 
     // đợt
@@ -152,14 +181,15 @@ export async function importBacklog(
     for (const t of data.viec) if (t.dot && !sprintCodes.has(t.dot)) sprintCodes.set(t.dot, "");
     const [{ maxPos }] = await tx
       .select({ maxPos: sql<number>`coalesce(max(${sprints.position}), -1)` })
-      .from(sprints);
+      .from(sprints)
+      .where(eq(sprints.projectId, pid));
     let pos = Number(maxPos) + 1;
     for (const [code, description] of sprintCodes) {
       await tx
         .insert(sprints)
-        .values({ code, description, position: pos++ })
+        .values({ projectId: pid, code, description, position: pos++ })
         .onConflictDoUpdate({
-          target: sprints.code,
+          target: [sprints.projectId, sprints.code],
           set: description ? { description } : { code },
         });
     }
@@ -192,6 +222,7 @@ export async function importBacklog(
       );
       const values = {
         key: t.id,
+        projectId: pid,
         title: t.tieu_de,
         area: t.mang || idNumber(t.id)?.prefix || "BE",
         type: t.loai || "loi",
@@ -240,8 +271,8 @@ export async function importBacklog(
       const [parent] = await tx
         .select({ key: tasks.key })
         .from(tasks)
-        .where(eq(tasks.key, t.viec_cha!));
-      if (!parent) throw new Error(`${t.id}: không có việc cha '${t.viec_cha}'`);
+        .where(and(eq(tasks.key, t.viec_cha!), eq(tasks.projectId, pid)));
+      if (!parent) throw new Error(`${t.id}: không có việc cha '${t.viec_cha}' trong dự án ${project.code}`);
       if (t.viec_cha === t.id) throw new Error(`${t.id}: không thể là việc con của chính nó`);
       await tx.update(tasks).set({ parentKey: t.viec_cha }).where(eq(tasks.key, t.id));
     }
@@ -284,7 +315,7 @@ export async function importBacklog(
       const { id, ...rest } = r;
       await tx
         .insert(records)
-        .values({ key: id, kind, data: rest, position: i })
+        .values({ key: id, projectId: pid, kind, data: rest, position: i })
         .onConflictDoUpdate({
           target: records.key,
           set: { kind, data: rest, position: i, updatedAt: new Date() },
@@ -302,10 +333,18 @@ export async function importBacklog(
         Math.max(nextByPrefix.get(parsedId.prefix) ?? 1, parsedId.n + 1),
       );
     }
+    const foreign = nextByPrefix.size
+      ? await tx
+          .select({ prefix: counters.prefix })
+          .from(counters)
+          .where(and(inArray(counters.prefix, [...nextByPrefix.keys()]), ne(counters.projectId, pid)))
+          .limit(1)
+      : [];
+    if (foreign[0]) throw new Error(`Bộ đếm ${foreign[0].prefix} đã thuộc dự án khác`);
     for (const [prefix, next] of nextByPrefix) {
       await tx
         .insert(counters)
-        .values({ prefix, next })
+        .values({ prefix, projectId: pid, next })
         .onConflictDoUpdate({
           target: counters.prefix,
           set: { next: sql`greatest(${counters.next}, excluded.next)` },
@@ -366,23 +405,38 @@ export function toBacklogTask(
 }
 
 const PREFIX_ORDER = ["BE", "FE", "OPS", "DOC", "AR", "QD"];
-function prefixRank(p: string) {
-  const i = PREFIX_ORDER.indexOf(p);
+function prefixRank(p: string, keyPrefix: string) {
+  const i = PREFIX_ORDER.indexOf(p.slice(keyPrefix.length));
   return i === -1 ? PREFIX_ORDER.length : i;
 }
 
-export async function exportBacklog() {
+export async function exportBacklog(project: Pick<Project, "id" | "keyPrefix">) {
+  const pid = project.id;
   const [metaRows, counterRows, sprintRows, taskRows, logRows, recordRows] = await Promise.all([
-    db.select().from(meta),
-    db.select().from(counters).orderBy(asc(counters.prefix)),
-    db.select().from(sprints).orderBy(asc(sprints.position), asc(sprints.code)),
+    db.select().from(meta).where(eq(meta.projectId, pid)),
+    db.select().from(counters).where(eq(counters.projectId, pid)).orderBy(asc(counters.prefix)),
+    db
+      .select()
+      .from(sprints)
+      .where(eq(sprints.projectId, pid))
+      .orderBy(asc(sprints.position), asc(sprints.code)),
     db
       .select({ task: tasks, email: users.email })
       .from(tasks)
       .leftJoin(users, eq(users.id, tasks.assigneeId))
+      .where(eq(tasks.projectId, pid))
       .orderBy(asc(tasks.seq)),
-    db.select().from(taskLogs).orderBy(asc(taskLogs.id)),
-    db.select().from(records).orderBy(asc(records.kind), asc(records.position), asc(records.key)),
+    db
+      .select({ taskKey: taskLogs.taskKey, date: taskLogs.date, text: taskLogs.text })
+      .from(taskLogs)
+      .innerJoin(tasks, eq(tasks.key, taskLogs.taskKey))
+      .where(eq(tasks.projectId, pid))
+      .orderBy(asc(taskLogs.id)),
+    db
+      .select()
+      .from(records)
+      .where(eq(records.projectId, pid))
+      .orderBy(asc(records.kind), asc(records.position), asc(records.key)),
   ]);
 
   const metaMap = new Map(metaRows.map((m) => [m.key, m.value]));
@@ -396,7 +450,11 @@ export async function exportBacklog() {
   const structured: Record<string, unknown> = {
     dem_id: Object.fromEntries(
       counterRows
-        .sort((a, b) => prefixRank(a.prefix) - prefixRank(b.prefix) || a.prefix.localeCompare(b.prefix))
+        .sort(
+          (a, b) =>
+            prefixRank(a.prefix, project.keyPrefix) - prefixRank(b.prefix, project.keyPrefix) ||
+            a.prefix.localeCompare(b.prefix),
+        )
         .map((c) => [c.prefix, { tiep_theo: c.next }]),
     ),
     dot: Object.fromEntries(sprintRows.map((s) => [s.code, s.description])),
@@ -422,14 +480,16 @@ export async function exportBacklog() {
   return out;
 }
 
-// Cấp id tiếp theo cho tiền tố (BE, FE, AR, QD …) – an toàn khi nhiều người tạo cùng lúc
+// Cấp id tiếp theo cho mảng / loại (BE, FE, AR, QD …) của dự án – an toàn khi nhiều người tạo cùng lúc
 export async function nextKey(
   tx: Pick<typeof db, "insert">,
-  prefix: string,
+  project: Pick<Project, "id" | "keyPrefix">,
+  area: string,
 ): Promise<string> {
+  const prefix = project.keyPrefix + area;
   const [row] = await tx
     .insert(counters)
-    .values({ prefix, next: 2 })
+    .values({ prefix, projectId: project.id, next: 2 })
     .onConflictDoUpdate({ target: counters.prefix, set: { next: sql`${counters.next} + 1` } })
     .returning({ next: counters.next });
   return `${prefix}-${String(row.next - 1).padStart(3, "0")}`;

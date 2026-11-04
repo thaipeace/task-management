@@ -125,7 +125,7 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
                 <span title="Kéo để đổi thứ tự" className="cursor-grab px-1 text-slate-300 select-none">
                   ⋮⋮
                 </span>
-                <Link href={`/tasks/${s.key}`} className="w-16 shrink-0 text-xs font-semibold text-brand hover:underline">
+                <Link href={`/tasks/${s.key}`} className="min-w-16 shrink-0 text-xs font-semibold whitespace-nowrap text-brand hover:underline">
                   {s.key}
                 </Link>
                 <span

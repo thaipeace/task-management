@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // CLI cho Task Board API – không cần cài gói nào (Node ≥ 20). Chép tệp này sang project khác cũng chạy.
 // Cần biến môi trường TM_API_URL và TM_API_TOKEN (tự đọc .env.local / .env ở thư mục hiện tại nếu có).
+// TM_PROJECT (tuỳ chọn): mã dự án mặc định cho create / list / sprints, vd. SIA. Cờ --du_an ghi đè.
 // Tài liệu đầy đủ: ../reference/API.md
 
 import { existsSync } from "node:fs";
@@ -15,17 +16,19 @@ for (const f of [".env.local", ".env"]) {
 
 const HELP = `Dùng:
   tm me                                  tài khoản của token
-  tm sprints                             danh sách đợt
-  tm list [--trang_thai=moi,dang-lam] [--dot=…] [--mang=BE] [--uu_tien=P1] [--loai=loi]
+  tm projects                            danh sách dự án (mã, tên, tiền tố id)
+  tm sprints [--du_an=SIA]               danh sách đợt
+  tm list [--du_an=SIA] [--trang_thai=moi,dang-lam] [--dot=…] [--mang=BE] [--uu_tien=P1] [--loai=loi]
           [--nguoi_lam=email|me|none] [--q=chữ] [--khoa_ngoai=…] [--gioi_han=200] [--json]
   tm get <ID>                            chi tiết, kèm nhật ký + bình luận
-  tm create --tieu_de="…" --mang=BE [trường khác…]
+  tm create --tieu_de="…" --mang=BE [--du_an=SIA] [trường khác…]
   tm update <ID> [--trang_thai=xong] [trường khác…]
   tm comment <ID> "nội dung"
   tm log <ID> "một dòng nhật ký"
 
 Trường: tieu_de mang loai dot uu_tien trang_thai uoc_luong mo_ta rui_ro nhanh_goi_y nguon nguoi_lam khoa_ngoai
 Trường danh sách (lặp cờ để thêm nhiều dòng): bang_chung viec_can_lam tieu_chi_xong kiem_thu phu_thuoc
+Dự án: --du_an hoặc biến TM_PROJECT; không có thì list/sprints lấy mọi dự án, create vào dự án mặc định.
 Giá trị "null" = xoá trường. Hoặc gửi nguyên JSON: --json-body='{"tieu_de":"…"}' / --file=viec.json`;
 
 const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc"];
@@ -86,13 +89,20 @@ async function call(method, path, body) {
 const print = (x) => console.log(JSON.stringify(x, null, 2));
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [cmd, id, text] = pos;
+// dự án mặc định từ môi trường cho lệnh chạy trong một dự án
+if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints"].includes(cmd)) {
+  flags.du_an = [process.env.TM_PROJECT];
+}
 
 switch (cmd) {
   case "me":
     print(await call("GET", "/me"));
     break;
+  case "projects":
+    print(await call("GET", "/projects"));
+    break;
   case "sprints":
-    print(await call("GET", "/sprints"));
+    print(await call("GET", "/sprints" + (flags.du_an ? `?du_an=${encodeURIComponent(flags.du_an[0])}` : "")));
     break;
   case "list": {
     const qs = new URLSearchParams();
@@ -101,7 +111,7 @@ switch (cmd) {
     if (flags.json) print(data);
     else {
       for (const v of data.viec) {
-        console.log(`${v.id.padEnd(8)} ${v.trang_thai.padEnd(9)} ${v.uu_tien} ${v.tieu_de}`);
+        console.log(`${v.id.padEnd(12)} ${v.trang_thai.padEnd(9)} ${v.uu_tien} ${v.tieu_de}`);
       }
       console.log(`(${data.so_luong} việc)`);
     }

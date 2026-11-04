@@ -16,7 +16,9 @@ export const GET = withApiAuth(async (_req, _me, { params }: Ctx) => {
 export const PATCH = withApiAuth(async (req, me, { params }: Ctx) => {
   const key = (await params).id.toUpperCase();
   const input = parseBody(patchTaskSchema, await readJson(req));
-  const patch = await toTaskData(input);
+  const [current] = await db.select({ projectId: tasks.projectId }).from(tasks).where(eq(tasks.key, key));
+  if (!current) throw new ApiError(404, `Không có việc '${key}'`);
+  const patch = await toTaskData(input, current.projectId);
 
   if (input.khoa_ngoai) {
     const [clash] = await db

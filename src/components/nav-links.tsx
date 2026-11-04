@@ -10,6 +10,7 @@ const MAIN = [
   { href: "/records", label: "Rủi ro & quyết định", icon: "⚑" },
 ];
 const ADMIN = [
+  { href: "/admin/projects", label: "Dự án", icon: "◫" },
   { href: "/admin/users", label: "Người dùng", icon: "👥" },
   { href: "/admin/import", label: "Import / Export", icon: "⇅" },
 ];

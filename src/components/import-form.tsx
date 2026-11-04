@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { importAction } from "@/app/actions/admin";
 
-export function ImportForm() {
+export function ImportForm({ project }: { project: { id: number; code: string; keyPrefix: string } }) {
   const [state, action, pending] = useActionState(importAction, undefined);
   const [mode, setMode] = useState<"merge" | "replace">("merge");
 
@@ -12,12 +12,19 @@ export function ImportForm() {
     <form
       action={action}
       onSubmit={(e) => {
-        if (mode === "replace" && !confirm("Thay toàn bộ: xoá mọi việc, bình luận, nhật ký, đợt, AR/QD rồi nạp lại từ tệp. Tiếp tục?")) {
+        if (mode === "replace" && !confirm(`Thay toàn bộ dự án ${project.code}: xoá mọi việc, bình luận, nhật ký, đợt, AR/QD của dự án này rồi nạp lại từ tệp. Tiếp tục?`)) {
           e.preventDefault();
         }
       }}
       className="card space-y-4 p-4"
     >
+      <input type="hidden" name="projectId" value={project.id} />
+      {project.keyPrefix && (
+        <p className="rounded bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Id việc / AR / QD trong tệp phải bắt đầu bằng <code>{project.keyPrefix}</code> (vd.{" "}
+          <code>{project.keyPrefix}BE-001</code>).
+        </p>
+      )}
       <div>
         <label className="label">Tệp backlog.json</label>
         <input
@@ -39,7 +46,7 @@ export function ImportForm() {
         <label className="flex items-start gap-2">
           <input type="radio" name="mode" value="replace" checked={mode === "replace"} onChange={() => setMode("replace")} className="mt-1" />
           <span>
-            <b className="text-red-700">Thay toàn bộ</b> – xoá dữ liệu backlog hiện có rồi nạp lại từ tệp (người dùng giữ nguyên).
+            <b className="text-red-700">Thay toàn bộ</b> – xoá dữ liệu backlog của dự án {project.code} rồi nạp lại từ tệp (người dùng và dự án khác giữ nguyên).
           </span>
         </label>
       </fieldset>

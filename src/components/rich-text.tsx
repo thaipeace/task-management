@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-const ID = /\b([A-Z]{2,4}-\d{3,})\b/g;
+// BE-001, QD-002, hoặc có mã dự án đứng trước: ABC-BE-001
+const ID = /\b((?:[A-Z][A-Z0-9]{1,9}-)?[A-Z]{2,4}-\d{3,})\b/g;
 
 export function idHref(id: string) {
-  return /^(AR|QD)-/.test(id) ? `/records#${id}` : `/tasks/${id}`;
+  return /(^|-)(AR|QD)-\d+$/.test(id) ? `/records#${id}` : `/tasks/${id}`;
 }
 
-// Hiện văn bản, biến các id dạng BE-001 / QD-002 thành liên kết
+// Hiện văn bản, biến các id dạng BE-001 / QD-002 / ABC-BE-001 thành liên kết
 export function RichText({ text, className = "" }: { text: string; className?: string }) {
   const parts = text.split(ID);
   return (

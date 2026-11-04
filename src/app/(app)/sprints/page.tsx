@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { SprintForm } from "@/components/inline-forms";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { getCurrentProject } from "@/lib/projects";
 import { STATUSES } from "@/lib/constants";
 import { listSprints, sprintStats } from "@/lib/queries";
 
@@ -21,8 +22,8 @@ export default function SprintsPage() {
 }
 
 async function SprintsContent() {
-  const me = await requireUser();
-  const [sprints, stats] = await Promise.all([listSprints(), sprintStats()]);
+  const [me, project] = await Promise.all([requireUser(), getCurrentProject()]);
+  const [sprints, stats] = await Promise.all([listSprints(project.id), sprintStats(project.id)]);
   const count = (code: string | null, status?: string) =>
     stats
       .filter((s) => s.sprint === code && (!status || s.status === status))
@@ -56,12 +57,12 @@ async function SprintsContent() {
                 {STATUSES.map((st) => `${st.label} ${count(s.code, st.value)}`).join(" · ")}
               </span>
             </div>
-            <SprintForm sprint={s} canDelete={me.role === "admin"} />
+            <SprintForm projectId={project.id} sprint={s} canDelete={me.role === "admin"} />
           </div>
         );
       })}
       <div className="card border-dashed p-4">
-        <SprintForm />
+        <SprintForm projectId={project.id} />
       </div>
     </div>
   );
