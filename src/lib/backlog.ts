@@ -24,7 +24,7 @@ const TASK_FIELDS = [
   "id", "tieu_de", "mang", "loai", "dot", "uu_tien", "trang_thai", "uoc_luong", "mo_ta",
   "bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "rui_ro", "can_phe_duyet",
   "phu_thuoc", "lien_quan", "nhanh_goi_y", "nguon", "tao_luc", "cap_nhat_luc", "nhat_ky",
-  "nguoi_lam", "khoa_ngoai",
+  "nguoi_lam", "khoa_ngoai", "viec_cha", "thu_tu_con",
 ];
 
 const strList = z
@@ -81,6 +81,8 @@ const taskSchema = z
       .transform((v) => v ?? []),
     nguoi_lam: optStr,
     khoa_ngoai: optStr,
+    viec_cha: optStr,
+    thu_tu_con: z.number().nullish(),
   })
   .passthrough();
 
@@ -209,6 +211,7 @@ export async function importBacklog(
         branch: t.nhanh_goi_y,
         source: t.nguon,
         ...(t.khoa_ngoai ? { externalKey: t.khoa_ngoai } : {}),
+        ...(t.thu_tu_con != null ? { subOrder: t.thu_tu_con } : {}),
         createdOn: t.tao_luc ?? date,
         updatedOn: t.cap_nhat_luc ?? t.tao_luc ?? date,
         extra,
@@ -226,6 +229,28 @@ export async function importBacklog(
         });
       if (!existing.has(t.id)) created++;
       index++;
+    }
+
+    // việc cha: gắn sau khi đã nạp hết việc (cha có thể đứng sau con trong tệp), rồi kiểm luật một cấp
+    const withParent = data.viec.filter((t) => t.viec_cha);
+    for (const t of withParent) {
+      await tx.update(tasks).set({ parentKey: null }).where(eq(tasks.key, t.id));
+    }
+    for (const t of withParent) {
+      const [parent] = await tx
+        .select({ key: tasks.key })
+        .from(tasks)
+        .where(eq(tasks.key, t.viec_cha!));
+      if (!parent) throw new Error(`${t.id}: không có việc cha '${t.viec_cha}'`);
+      if (t.viec_cha === t.id) throw new Error(`${t.id}: không thể là việc con của chính nó`);
+      await tx.update(tasks).set({ parentKey: t.viec_cha }).where(eq(tasks.key, t.id));
+    }
+    if (withParent.length) {
+      const nested = await tx.execute<{ child: string; parent: string }>(
+        sql`select c.key as child, p.key as parent from tasks c join tasks p on p.key = c.parent_key where p.parent_key is not null limit 1`,
+      );
+      const row = nested.rows[0];
+      if (row) throw new Error(`${row.child}: việc cha ${row.parent} lại là việc con – việc con chỉ một cấp`);
     }
 
     // nhật ký: chỉ thêm dòng chưa có (theo ngày + nội dung) để không mất dòng ghi trong app
@@ -335,6 +360,7 @@ export function toBacklogTask(
     nhat_ky: logs,
     ...(assigneeEmail ? { nguoi_lam: assigneeEmail } : {}),
     ...(t.externalKey ? { khoa_ngoai: t.externalKey } : {}),
+    ...(t.parentKey ? { viec_cha: t.parentKey, thu_tu_con: t.subOrder } : {}),
     ...t.extra,
   };
 }

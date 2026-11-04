@@ -18,6 +18,7 @@ export const GET = withApiAuth(async (req, me) => {
       nguoi_lam: sp.get("nguoi_lam") ?? undefined,
       q: sp.get("q") ?? undefined,
       khoa_ngoai: sp.get("khoa_ngoai") ?? undefined,
+      viec_cha: sp.get("viec_cha") ?? undefined,
       gioi_han: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 1000) : 200,
     },
     me.id,

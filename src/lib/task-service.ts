@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { taskLogs, tasks, users } from "@/db/schema";
 import { nextKey } from "./backlog";
@@ -10,9 +10,12 @@ import { STATUSES, labelOf, today } from "./constants";
 
 export type Actor = { id: number; name: string };
 
+// Vi phạm quy tắc nghiệp vụ (vd. việc con lồng việc con) – API trả 400, giao diện hiện thông báo
+export class TaskRuleError extends Error {}
+
 export type TaskData = Omit<
   typeof tasks.$inferInsert,
-  "key" | "seq" | "position" | "createdOn" | "updatedOn" | "extra" | "updatedAt"
+  "key" | "seq" | "position" | "subOrder" | "createdOn" | "updatedOn" | "extra" | "updatedAt"
 >;
 
 async function userName(id: number | null | undefined) {
@@ -25,22 +28,62 @@ export function statusLog(from: string, to: string, actor: Actor) {
   return `Trạng thái: ${labelOf(STATUSES, from)} → ${labelOf(STATUSES, to)} (${actor.name})`;
 }
 
+// Việc con chỉ một cấp: cha phải tồn tại và không là việc con; việc đang có con không được thành việc con
+async function checkParent(parentKey: string, selfKey?: string) {
+  if (parentKey === selfKey) throw new TaskRuleError("Việc không thể là việc con của chính nó");
+  const [parent] = await db
+    .select({ parentKey: tasks.parentKey })
+    .from(tasks)
+    .where(eq(tasks.key, parentKey));
+  if (!parent) throw new TaskRuleError(`Không có việc cha '${parentKey}'`);
+  if (parent.parentKey) {
+    throw new TaskRuleError(`${parentKey} đã là việc con của ${parent.parentKey} – việc con không có việc con`);
+  }
+  if (selfKey) {
+    const [{ n }] = await db.select({ n: count() }).from(tasks).where(eq(tasks.parentKey, selfKey));
+    if (n > 0) throw new TaskRuleError(`${selfKey} đang có ${n} việc con nên không thể thành việc con`);
+  }
+}
+
 export async function createTaskCore(data: TaskData, actor: Actor, via = "") {
   const date = today();
+  if (data.parentKey) await checkParent(data.parentKey);
   return db.transaction(async (tx) => {
     const key = await nextKey(tx, data.area);
+    let subOrder = 0;
+    if (data.parentKey) {
+      // việc con mới nằm cuối danh sách
+      const [{ max }] = await tx
+        .select({ max: sql<number>`coalesce(max(${tasks.subOrder}), 0)` })
+        .from(tasks)
+        .where(eq(tasks.parentKey, data.parentKey));
+      subOrder = Number(max) + 1000;
+    }
     await tx.insert(tasks).values({
       ...data,
       key,
       position: Date.now(),
+      subOrder,
       createdOn: date,
       updatedOn: date,
     });
     await tx
       .insert(taskLogs)
       .values({ taskKey: key, date, text: `Tạo việc${via} (${actor.name})`, userId: actor.id });
+    if (data.parentKey) {
+      await tx.insert(taskLogs).values({
+        taskKey: data.parentKey,
+        date,
+        text: `Thêm việc con ${key} (${actor.name})`,
+        userId: actor.id,
+      });
+    }
     return key;
   });
+}
+
+export async function reorderSubtask(key: string, subOrder: number) {
+  await db.update(tasks).set({ subOrder }).where(and(eq(tasks.key, key), sql`${tasks.parentKey} is not null`));
 }
 
 // Trả về false khi không có việc này
@@ -56,11 +99,29 @@ export async function updateTaskCore(key: string, patch: Partial<TaskData>, acto
   if (patch.assigneeId !== undefined && patch.assigneeId !== old.assigneeId) {
     logs.push(`Giao cho: ${await userName(patch.assigneeId)} (${actor.name})`);
   }
+  if (patch.parentKey !== undefined && patch.parentKey !== old.parentKey) {
+    if (patch.parentKey) {
+      await checkParent(patch.parentKey, key);
+      logs.push(`Thành việc con của ${patch.parentKey} (${actor.name})`);
+    } else {
+      logs.push(`Tách khỏi việc cha ${old.parentKey} (${actor.name})`);
+    }
+  }
+
+  // gắn vào việc cha mới thì nằm cuối danh sách việc con, như khi tạo mới
+  let subOrder: number | undefined;
+  if (patch.parentKey && patch.parentKey !== old.parentKey) {
+    const [{ max }] = await db
+      .select({ max: sql<number>`coalesce(max(${tasks.subOrder}), 0)` })
+      .from(tasks)
+      .where(eq(tasks.parentKey, patch.parentKey));
+    subOrder = Number(max) + 1000;
+  }
 
   // mảng (BE/FE…) chỉ là nhãn – id giữ nguyên để không gãy liên kết
   await db
     .update(tasks)
-    .set({ ...patch, updatedOn: date, updatedAt: new Date() })
+    .set({ ...patch, ...(subOrder !== undefined ? { subOrder } : {}), updatedOn: date, updatedAt: new Date() })
     .where(eq(tasks.key, key));
   if (logs.length) {
     await db

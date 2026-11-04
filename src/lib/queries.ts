@@ -41,8 +41,9 @@ function inListOrNull(col: typeof tasks.sprint, values: string[]) {
   return or(...parts)!;
 }
 
+// Bảng / backlog: chỉ việc lớn (việc con nằm trong trang của việc cha), kèm tiến độ việc con
 export async function listTasks(f: TaskFilters, meId: number) {
-  const where: SQL[] = [];
+  const where: SQL[] = [isNull(tasks.parentKey)];
   if (f.q) {
     const like = `%${f.q}%`;
     where.push(or(ilike(tasks.key, like), ilike(tasks.title, like), ilike(tasks.description, like))!);
@@ -75,10 +76,12 @@ export async function listTasks(f: TaskFilters, meId: number) {
       dependsOn: tasks.dependsOn,
       assigneeId: tasks.assigneeId,
       assigneeName: users.name,
+      subTotal: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key})`,
+      subDone: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key} and c.status = 'xong')`,
     })
     .from(tasks)
     .leftJoin(users, eq(users.id, tasks.assigneeId))
-    .where(where.length ? and(...where) : undefined)
+    .where(and(...where))
     .orderBy(asc(tasks.position), asc(tasks.key));
 }
 
@@ -87,7 +90,7 @@ export type TaskRow = Awaited<ReturnType<typeof listTasks>>[number];
 export async function getTask(key: string) {
   const [row] = await db.select().from(tasks).where(eq(tasks.key, key));
   if (!row) return null;
-  const [logs, commentRows] = await Promise.all([
+  const [logs, commentRows, subtasks, parent] = await Promise.all([
     db
       .select({ id: taskLogs.id, date: taskLogs.date, text: taskLogs.text, userName: users.name })
       .from(taskLogs)
@@ -99,6 +102,7 @@ export async function getTask(key: string) {
         id: comments.id,
         body: comments.body,
         createdAt: comments.createdAt,
+        editedAt: comments.editedAt,
         userId: comments.userId,
         userName: users.name,
       })
@@ -106,8 +110,28 @@ export async function getTask(key: string) {
       .leftJoin(users, eq(users.id, comments.userId))
       .where(eq(comments.taskKey, key))
       .orderBy(asc(comments.id)),
+    db
+      .select({
+        key: tasks.key,
+        title: tasks.title,
+        status: tasks.status,
+        priority: tasks.priority,
+        subOrder: tasks.subOrder,
+        assigneeName: users.name,
+      })
+      .from(tasks)
+      .leftJoin(users, eq(users.id, tasks.assigneeId))
+      .where(eq(tasks.parentKey, key))
+      .orderBy(asc(tasks.subOrder), asc(tasks.key)),
+    row.parentKey
+      ? db
+          .select({ key: tasks.key, title: tasks.title })
+          .from(tasks)
+          .where(eq(tasks.key, row.parentKey))
+          .then((r) => r[0] ?? null)
+      : null,
   ]);
-  return { task: row, logs, comments: commentRows };
+  return { task: row, logs, comments: commentRows, subtasks, parent };
 }
 
 export function listSprints() {

@@ -5,7 +5,7 @@ import { useOptimistic, useRef, useState, useTransition } from "react";
 import { moveTask } from "@/app/actions/tasks";
 import { STATUSES } from "@/lib/constants";
 import type { TaskRow } from "@/lib/queries";
-import { AreaBadge, Avatar, PriorityBadge, TypeIcon } from "./ui";
+import { AreaBadge, Avatar, PriorityBadge, SubtaskProgress, TypeIcon } from "./ui";
 
 type Move = { key: string; status: string; position: number };
 
@@ -197,6 +197,7 @@ function Card({
             Cần duyệt
           </span>
         )}
+        <SubtaskProgress done={t.subDone} total={t.subTotal} />
         {t.dependsOn.length > 0 && (
           <span
             title={`Phụ thuộc: ${t.dependsOn.join(", ")}`}

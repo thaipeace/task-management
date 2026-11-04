@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { assignTask, deleteComment, setStatus } from "@/app/actions/tasks";
+import { useState, useTransition } from "react";
+import { assignTask, deleteComment, setStatus, updateComment } from "@/app/actions/tasks";
 import { STATUSES } from "@/lib/constants";
 
 export function StatusSelect({ taskKey, status }: { taskKey: string; status: string }) {
@@ -67,5 +67,71 @@ export function DeleteCommentButton({ id }: { id: number }) {
     >
       Xoá
     </button>
+  );
+}
+
+export function CommentBody({
+  id,
+  body,
+  canEdit,
+  children,
+}: {
+  id: number;
+  body: string;
+  canEdit: boolean;
+  children: React.ReactNode;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  if (!editing) {
+    return (
+      <div className="group">
+        {children}
+        {canEdit && (
+          <button onClick={() => setEditing(true)} className="mt-0.5 text-xs text-slate-400 hover:text-brand">
+            Sửa
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const text = String(new FormData(e.currentTarget).get("body") ?? "");
+        start(async () => {
+          try {
+            await updateComment(id, text);
+            setEditing(false);
+            setError(null);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Không lưu được");
+          }
+        });
+      }}
+      className="mt-1"
+    >
+      <textarea
+        name="body"
+        defaultValue={body}
+        rows={3}
+        required
+        autoFocus
+        onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
+        className="input"
+      />
+      <div className="mt-1 flex items-center gap-2">
+        <button disabled={pending} className="btn-primary py-1 text-xs">
+          {pending ? "Đang lưu…" : "Lưu"}
+        </button>
+        <button type="button" onClick={() => setEditing(false)} className="btn-ghost py-1 text-xs">
+          Huỷ
+        </button>
+        {error && <span className="text-xs text-red-600">{error}</span>}
+      </div>
+    </form>
   );
 }

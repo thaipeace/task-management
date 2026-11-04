@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { apiTokens, sprints, users } from "@/db/schema";
 import { hashToken, newToken, type CurrentUser } from "./auth";
 import { AREAS, ESTIMATES, PRIORITIES, STATUSES, TYPES } from "./constants";
-import type { TaskData } from "./task-service";
+import { TaskRuleError, type TaskData } from "./task-service";
 
 export const TOKEN_PREFIX = "tm_";
 
@@ -40,6 +40,7 @@ export function withApiAuth<C>(
     } catch (e) {
       // tín hiệu nội bộ của Next (vd. dừng prerender khi đọc header) phải được ném tiếp
       unstable_rethrow(e);
+      if (e instanceof TaskRuleError) return json({ loi: e.message }, 400);
       if (e instanceof ApiError) {
         return json({ loi: e.message, ...(e.details ? { chi_tiet: e.details } : {}) }, e.status);
       }
@@ -124,6 +125,8 @@ const taskFields = {
   nguon: z.string(),
   nguoi_lam: z.string().email().nullable(),
   khoa_ngoai: z.string().trim().min(1).max(500).nullable(),
+  // id việc cha (việc con chỉ một cấp); null = tách khỏi việc cha
+  viec_cha: z.string().trim().min(1).nullable(),
 };
 
 export const createTaskSchema = z
@@ -172,6 +175,7 @@ export async function toTaskData(input: TaskInput): Promise<Partial<TaskData>> {
     ["nguon", "source"],
     ["khoa_ngoai", "externalKey"],
   ];
+  if (input.viec_cha !== undefined) out.parentKey = input.viec_cha?.toUpperCase() ?? null;
   for (const [from, to] of map) {
     if (input[from] !== undefined) (out as Record<string, unknown>)[to] = input[from];
   }

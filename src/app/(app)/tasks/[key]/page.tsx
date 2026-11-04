@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { addComment, addLog } from "@/app/actions/tasks";
 import { IdLinks, RichText } from "@/components/rich-text";
-import { AssigneeSelect, DeleteCommentButton, StatusSelect } from "@/components/task-quick";
+import { Subtasks } from "@/components/subtasks";
+import { AssigneeSelect, CommentBody, DeleteCommentButton, StatusSelect } from "@/components/task-quick";
 import { AreaBadge, Avatar, Loading, PriorityBadge, TypeIcon } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { AREAS, ESTIMATES, PRIORITIES, TYPES, labelOf } from "@/lib/constants";
@@ -22,7 +23,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
   const { key } = await params;
   const [data, users] = await Promise.all([getTask(decodeURIComponent(key)), listActiveUsers()]);
   if (!data) notFound();
-  const { task: t, logs, comments } = data;
+  const { task: t, logs, comments, subtasks, parent } = data;
   const fmt = new Intl.DateTimeFormat("vi-VN", {
     dateStyle: "short",
     timeStyle: "short",
@@ -44,6 +45,14 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
             <span>/</span>
           </>
         )}
+        {parent && (
+          <>
+            <Link href={`/tasks/${parent.key}`} className="hover:underline" title={parent.title}>
+              {parent.key}
+            </Link>
+            <span>/</span>
+          </>
+        )}
         <span className="flex items-center gap-1 font-semibold text-slate-700">
           <TypeIcon type={t.type} /> {t.key}
         </span>
@@ -58,9 +67,22 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
             </Link>
           </div>
 
+          {parent && (
+            <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
+              Việc con của{" "}
+              <Link href={`/tasks/${parent.key}`} className="font-semibold text-brand hover:underline">
+                {parent.key}
+              </Link>{" "}
+              · {parent.title}
+            </p>
+          )}
+
           <Section title="Mô tả">
             {t.description ? <RichText text={t.description} /> : <Empty />}
           </Section>
+          {/* việc con chỉ một cấp: việc con không có danh sách việc con */}
+          {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} />}
+
           <ListSection title="Việc cần làm" items={t.steps} ordered />
           <ListSection title="Tiêu chí xong" items={t.doneCriteria} check />
           <ListSection title="Bằng chứng" items={t.evidence} mono />
@@ -103,9 +125,12 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
                     <div className="flex items-center gap-2 text-xs text-slate-500">
                       <span className="font-semibold text-slate-700">{c.userName ?? "?"}</span>
                       {fmt.format(c.createdAt)}
+                      {c.editedAt && <span title={`Sửa lúc ${fmt.format(c.editedAt)}`}>(đã sửa)</span>}
                       {(c.userId === me.id || me.role === "admin") && <DeleteCommentButton id={c.id} />}
                     </div>
-                    <RichText text={c.body} className="mt-0.5 block text-sm" />
+                    <CommentBody id={c.id} body={c.body} canEdit={c.userId === me.id}>
+                      <RichText text={c.body} className="mt-0.5 block text-sm" />
+                    </CommentBody>
                   </div>
                 </li>
               ))}

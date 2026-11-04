@@ -98,3 +98,17 @@ export function PageHeader({
 export function Loading({ label = "Đang tải…" }: { label?: string }) {
   return <div className="animate-pulse p-6 text-sm text-slate-400">{label}</div>;
 }
+
+export function SubtaskProgress({ done, total }: { done: number; total: number }) {
+  if (!total) return null;
+  return (
+    <span
+      title={`Việc con: ${done}/${total} xong`}
+      className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+        done === total ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"
+      }`}
+    >
+      ☑ {done}/{total}
+    </span>
+  );
+}

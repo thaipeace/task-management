@@ -51,6 +51,12 @@ Giá trị hợp lệ:
 - `--truong=null` xoá giá trị của trường đó.
 - Gửi nguyên một object JSON: `--json-body='{…}'` hoặc `--file=viec.json`.
 
+**Việc con (một cấp):**
+- Tạo việc con: `create --viec_cha=BE-001 --tieu_de="…" --mang=BE`. Nên lấy mảng, đợt và ưu tiên giống việc cha.
+- Xem các việc con: `get BE-001` (trường `viec_con`) hoặc `list --viec_cha=BE-001`.
+- Việc con không có việc con. Việc đang có việc con không thể thành việc con.
+- Thứ tự việc con chỉ đổi được bằng kéo thả trên web.
+
 ## Quy tắc
 
 - **Không xoá việc.** Việc bỏ đi thì `--trang_thai=huy`.

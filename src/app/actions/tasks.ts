@@ -9,7 +9,13 @@ import { comments, records, sprints, taskLogs, tasks } from "@/db/schema";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { nextKey } from "@/lib/backlog";
 import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, STATUSES, TYPES, today } from "@/lib/constants";
-import { createTaskCore, statusLog, updateTaskCore } from "@/lib/task-service";
+import {
+  TaskRuleError,
+  createTaskCore,
+  reorderSubtask,
+  statusLog,
+  updateTaskCore,
+} from "@/lib/task-service";
 
 export type TaskFormState = { error?: string; ok?: string } | undefined;
 
@@ -171,6 +177,60 @@ export async function addComment(key: string, form: FormData) {
   const body = String(form.get("body") ?? "").trim();
   if (!body) return;
   await db.insert(comments).values({ taskKey: key, body, userId: me.id });
+  refresh();
+}
+
+// Chỉ người viết được sửa bình luận của mình
+export async function updateComment(id: number, body: string) {
+  const me = await requireUser();
+  const text = body.trim();
+  if (!text) throw new Error("Bình luận trống");
+  const [row] = await db
+    .update(comments)
+    .set({ body: text, editedAt: new Date() })
+    .where(and(eq(comments.id, id), eq(comments.userId, me.id)))
+    .returning({ id: comments.id });
+  if (!row) throw new Error("Chỉ sửa được bình luận của chính mình");
+  refresh();
+}
+
+// ---- Việc con ----
+
+// Thêm nhanh việc con: lấy mảng / loại / đợt / ưu tiên của việc cha
+export async function addSubtask(
+  parentKey: string,
+  _: TaskFormState,
+  form: FormData,
+): Promise<TaskFormState> {
+  const me = await requireUser();
+  const title = String(form.get("title") ?? "").trim();
+  if (!title) return { error: "Cần nhập tiêu đề việc con" };
+  const [parent] = await db.select().from(tasks).where(eq(tasks.key, parentKey));
+  if (!parent) return { error: "Không tìm thấy việc cha" };
+  try {
+    await createTaskCore(
+      {
+        title,
+        parentKey,
+        area: parent.area,
+        type: parent.type,
+        sprint: parent.sprint,
+        priority: parent.priority,
+        status: "moi",
+      },
+      me,
+    );
+  } catch (e) {
+    if (e instanceof TaskRuleError) return { error: e.message };
+    throw e;
+  }
+  refresh();
+  return { ok: "Đã thêm" };
+}
+
+export async function moveSubtask(key: string, subOrder: number) {
+  await requireUser();
+  await reorderSubtask(key, subOrder);
   refresh();
 }
 

@@ -44,7 +44,7 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | GET | `/sprints` | `{ dot: [{ ma, mo_ta }] }` |
 | GET | `/tasks` | Danh sách việc, không kèm `nhat_ky` |
 | POST | `/tasks` | Tạo việc |
-| GET | `/tasks/{id}` | Một việc, kèm `nhat_ky` và `binh_luan` |
+| GET | `/tasks/{id}` | Một việc, kèm `nhat_ky`, `binh_luan` (có `sua_luc` nếu bình luận đã sửa) và `viec_con` |
 | PATCH | `/tasks/{id}` | Sửa một phần: chỉ gửi trường cần đổi |
 | POST | `/tasks/{id}/comments` | `{ "noi_dung": "…" }` → thêm bình luận |
 | POST | `/tasks/{id}/logs` | `{ "ghi": "…" }` → thêm một dòng `nhat_ky` |
@@ -61,6 +61,7 @@ Tham số query, tất cả đều không bắt buộc:
 - `nguoi_lam`: email, `me` (chủ token) hoặc `none` (chưa giao).
 - `q`: tìm trong id, tiêu đề và mô tả.
 - `khoa_ngoai`: tìm đúng việc mang khoá đó.
+- `viec_cha`: id việc cha để lấy các việc con của nó, hoặc `none` để chỉ lấy việc lớn.
 - `gioi_han`: số việc tối đa, mặc định 200, lớn nhất 1000.
 
 Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
@@ -83,6 +84,9 @@ Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
 | `lien_quan` | `{ issue, pr, viec: [], tai_lieu: [] }` | `issue` / `pr` là số hoặc chuỗi |
 | `nhanh_goi_y` | string \| null | |
 | `nguoi_lam` | email \| null | Người dùng phải có sẵn và đang hoạt động |
+| `viec_cha` | id \| null | Gắn làm việc con của việc đó; `null` = tách ra. Việc con chỉ một cấp: việc cha không được là việc con, và việc đang có việc con thì không thành việc con được (vi phạm → `400`) |
+| `viec_con` | chỉ đọc | Chỉ có ở `GET /tasks/{id}` của việc lớn: `[{ id, tieu_de, trang_thai }]` theo thứ tự kéo thả |
+| `thu_tu_con` | chỉ đọc | Thứ tự của việc con trong việc cha (có trong export) |
 | `khoa_ngoai` | string \| null | Khoá do công cụ ngoài tự đặt, duy nhất trong toàn hệ thống (xem bên dưới) |
 | `tao_luc`, `cap_nhat_luc`, `nhat_ky` | chỉ đọc | |
 

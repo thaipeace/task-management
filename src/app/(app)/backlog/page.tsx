@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FilterBar } from "@/components/filter-bar";
-import { AreaBadge, Avatar, Loading, PageHeader, PriorityBadge, StatusBadge, TypeIcon } from "@/components/ui";
+import { AreaBadge, Avatar, Loading, PageHeader, PriorityBadge, StatusBadge, SubtaskProgress, TypeIcon } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { listActiveUsers, listSprints, listTasks, readFilters, type TaskRow } from "@/lib/queries";
 
@@ -111,6 +111,7 @@ function SprintGroup({
               <span className={`min-w-0 flex-1 truncate ${t.status === "huy" ? "line-through text-slate-400" : ""}`}>
                 {t.title}
               </span>
+              <SubtaskProgress done={t.subDone} total={t.subTotal} />
               <AreaBadge area={t.area} />
               {t.estimate && (
                 <span className="hidden rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold text-slate-600 sm:inline">

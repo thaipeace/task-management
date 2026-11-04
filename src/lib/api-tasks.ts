@@ -8,22 +8,35 @@ import { toBacklogTask } from "./backlog";
 export async function getApiTask(key: string) {
   const [t] = await db.select().from(tasks).where(eq(tasks.key, key));
   if (!t) throw new ApiError(404, `Không có việc '${key}'`);
-  const [logs, commentRows, emails] = await Promise.all([
+  const [logs, commentRows, emails, subtasks] = await Promise.all([
     db
       .select({ ngay: taskLogs.date, ghi: taskLogs.text })
       .from(taskLogs)
       .where(eq(taskLogs.taskKey, key))
       .orderBy(asc(taskLogs.id)),
     db
-      .select({ id: comments.id, nguoi: users.email, noi_dung: comments.body, luc: comments.createdAt })
+      .select({
+        id: comments.id,
+        nguoi: users.email,
+        noi_dung: comments.body,
+        luc: comments.createdAt,
+        sua_luc: comments.editedAt,
+      })
       .from(comments)
       .leftJoin(users, eq(users.id, comments.userId))
       .where(eq(comments.taskKey, key))
       .orderBy(asc(comments.id)),
     assigneeEmails([t.assigneeId]),
+    db
+      .select({ id: tasks.key, tieu_de: tasks.title, trang_thai: tasks.status })
+      .from(tasks)
+      .where(eq(tasks.parentKey, key))
+      .orderBy(asc(tasks.subOrder), asc(tasks.key)),
   ]);
   return {
     ...toBacklogTask(t, t.assigneeId ? (emails.get(t.assigneeId) ?? null) : null, logs),
+    // việc con không có việc con nên không trả danh sách rỗng cho nó
+    ...(t.parentKey ? {} : { viec_con: subtasks }),
     binh_luan: commentRows,
   };
 }
@@ -37,6 +50,7 @@ export type ListQuery = {
   nguoi_lam?: string; // email | "none"
   q?: string;
   khoa_ngoai?: string;
+  viec_cha?: string; // id | "none" (chỉ việc lớn)
   gioi_han: number;
 };
 
@@ -49,6 +63,8 @@ export async function listApiTasks(f: ListQuery, meId: number) {
   if (f.uu_tien) where.push(eq(tasks.priority, f.uu_tien));
   if (f.loai) where.push(eq(tasks.type, f.loai));
   if (f.khoa_ngoai) where.push(eq(tasks.externalKey, f.khoa_ngoai));
+  if (f.viec_cha === "none") where.push(isNull(tasks.parentKey));
+  else if (f.viec_cha) where.push(eq(tasks.parentKey, f.viec_cha.toUpperCase()));
   if (f.nguoi_lam === "none") where.push(isNull(tasks.assigneeId));
   else if (f.nguoi_lam === "me") where.push(eq(tasks.assigneeId, meId));
   else if (f.nguoi_lam) where.push(eq(users.email, f.nguoi_lam.toLowerCase()));

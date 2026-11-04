@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export type Approval = { ai: string; ly_do: string } | null;
@@ -98,6 +99,13 @@ export const tasks = pgTable(
     assigneeId: integer("assignee_id").references(() => users.id, { onDelete: "set null" }),
     // "khoa_ngoai": khoá do công cụ ngoài đặt (vd. tên bài test lỗi) để gọi API nhiều lần không tạo trùng
     externalKey: text("external_key"),
+    // việc con: chỉ một cấp (việc cha không được là việc con) – kiểm tra trong task-service
+    parentKey: text("parent_key").references((): AnyPgColumn => tasks.key, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    // thứ tự trong danh sách việc con của việc cha (kéo thả)
+    subOrder: doublePrecision("sub_order").notNull().default(0),
     position: doublePrecision("position").notNull().default(0),
     createdOn: text("created_on").notNull(),
     updatedOn: text("updated_on").notNull(),
@@ -109,6 +117,7 @@ export const tasks = pgTable(
     index("tasks_status_idx").on(t.status),
     index("tasks_sprint_idx").on(t.sprint),
     uniqueIndex("tasks_external_key_idx").on(t.externalKey),
+    index("tasks_parent_idx").on(t.parentKey),
   ],
 );
 
@@ -137,6 +146,7 @@ export const comments = pgTable(
       .references(() => tasks.key, { onDelete: "cascade", onUpdate: "cascade" }),
     userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
     body: text("body").notNull(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("comments_task_idx").on(t.taskKey)],
