@@ -52,6 +52,9 @@ Giá trị hợp lệ:
 - Gửi nguyên một object JSON: `--json-body='{…}'` hoặc `--file=viec.json`.
 
 **Việc con (một cấp):**
+- **Chia nhỏ một việc** (các phần A/B/C, các lỗi tìm ra khi làm việc đó, phần tách ra làm riêng) thì **bắt buộc** dùng `--viec_cha=<id việc mẹ>`. Không chỉ ghi id vào `lien_quan.viec` hay viết "việc con của …" trong mô tả: như vậy app chỉ hiểu là hai việc liên quan, không hiện trong mục Việc con và không tính tiến độ.
+- `lien_quan.viec` chỉ dành cho hai việc ngang hàng có dính dáng nhau. `phu_thuoc` dành cho việc phải xong trước.
+- Việc đã tạo mà quên gắn cha: `update <ID> --viec_cha=<id việc mẹ>`.
 - Tạo việc con: `create --viec_cha=BE-001 --tieu_de="…" --mang=BE`. Nên lấy mảng, đợt và ưu tiên giống việc cha.
 - Xem các việc con: `get BE-001` (trường `viec_con`) hoặc `list --viec_cha=BE-001`.
 - Việc con không có việc con. Việc đang có việc con không thể thành việc con.
