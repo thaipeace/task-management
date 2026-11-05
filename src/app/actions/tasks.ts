@@ -18,7 +18,8 @@ import {
   updateTaskCore,
 } from "@/lib/task-service";
 
-export type TaskFormState = { error?: string; ok?: string } | undefined;
+// conflictAt: việc đã bị người khác sửa trong lúc mình đang soạn – bấm Lưu lần nữa thì ghi đè
+export type TaskFormState = { error?: string; ok?: string; conflictAt?: string } | undefined;
 
 const values = <T extends readonly { value: string }[]>(list: T) =>
   list.map((o) => o.value) as [T[number]["value"], ...T[number]["value"][]];
@@ -132,6 +133,16 @@ export async function updateTask(
   const me = await requireUser();
   const parsed = parseTaskForm(form);
   if ("error" in parsed) return { error: parsed.error };
+  const expected = String(form.get("expectedUpdatedAt") ?? "");
+  const [cur] = await db.select({ updatedAt: tasks.updatedAt }).from(tasks).where(eq(tasks.key, key));
+  if (!cur) return { error: "Không tìm thấy việc" };
+  if (expected && cur.updatedAt.toISOString() !== expected) {
+    const at = cur.updatedAt.toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour: "2-digit", minute: "2-digit" });
+    return {
+      error: `Việc này vừa được sửa lúc ${at} trong khi bạn đang soạn. Chưa lưu gì – nội dung bạn nhập vẫn còn. Mở việc ở tab mới để xem bản mới, hoặc bấm Lưu lần nữa để ghi đè.`,
+      conflictAt: cur.updatedAt.toISOString(),
+    };
+  }
   if (!(await updateTaskCore(key, parsed.data, me))) return { error: "Không tìm thấy việc" };
   refresh();
   return { ok: "Đã lưu" };

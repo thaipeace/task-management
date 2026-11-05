@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { LiveRefresh } from "@/components/live-refresh";
 import { Sidebar } from "@/components/sidebar";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -8,6 +9,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <Sidebar />
       </Suspense>
       <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-6">{children}</main>
+      <LiveRefresh />
     </div>
   );
 }

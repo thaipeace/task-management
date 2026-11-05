@@ -60,6 +60,10 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
 
   return (
     <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_300px]">
+      {/* chống ghi đè: server so với updated_at hiện tại; sau cảnh báo xung đột thì lần Lưu sau ghi đè */}
+      {t && (
+        <input type="hidden" name="expectedUpdatedAt" readOnly value={state?.conflictAt ?? new Date(t.updatedAt).toISOString()} />
+      )}
       <div className="space-y-4">
         <div>
           <label className="label">Tiêu đề</label>
