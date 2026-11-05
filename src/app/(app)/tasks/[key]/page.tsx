@@ -130,6 +130,13 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
           {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} />}
 
           <CollapsibleSection title={`Bình luận (${comments.length})`} defaultOpen>
+            <form action={addComment.bind(null, t.key)} className="mb-4 flex gap-3">
+              <Avatar name={me.name} size={28} />
+              <div className="flex-1">
+                <MarkdownField name="body" rows={3} required placeholder="Thêm bình luận… (Markdown: **đậm**, `code`, [link](url))" />
+                <button className="btn-primary mt-2">Gửi</button>
+              </div>
+            </form>
             <ul className="space-y-3">
               {comments.map((c) => (
                 <li key={c.id} className="flex gap-3">
@@ -148,13 +155,6 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
                 </li>
               ))}
             </ul>
-            <form action={addComment.bind(null, t.key)} className="mt-3 flex gap-3">
-              <Avatar name={me.name} size={28} />
-              <div className="flex-1">
-                <MarkdownField name="body" rows={3} required placeholder="Thêm bình luận… (Markdown: **đậm**, `code`, [link](url))" />
-                <button className="btn-primary mt-2">Gửi</button>
-              </div>
-            </form>
           </CollapsibleSection>
 
           <CollapsibleSection title={`Nhật ký (${logs.length})`}>

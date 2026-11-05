@@ -123,7 +123,7 @@ export async function getTask(key: string) {
       .from(comments)
       .leftJoin(users, eq(users.id, comments.userId))
       .where(eq(comments.taskKey, key))
-      .orderBy(asc(comments.id)),
+      .orderBy(desc(comments.id)), // mới nhất lên trên
     db
       .select({
         key: tasks.key,
