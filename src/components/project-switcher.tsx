@@ -7,7 +7,7 @@ import { switchProject } from "@/app/actions/projects";
 type P = { code: string; name: string };
 
 // Trang danh sách thì ở lại (lọc theo dự án mới); trang chi tiết việc thì về bảng
-const LIST_PAGES = ["/board", "/backlog", "/sprints", "/records", "/admin/import", "/tasks/new"];
+const LIST_PAGES = ["/board", "/backlog", "/sprints", "/records", "/report", "/admin/import", "/tasks/new"];
 
 export function ProjectSwitcher({ current, projects }: { current: P; projects: P[] }) {
   const router = useRouter();
