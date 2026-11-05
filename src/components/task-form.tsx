@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MarkdownField, MarkdownHint } from "./markdown-field";
 import { useFormAction } from "./use-form-action";
 import type { TaskFormState } from "@/app/actions/tasks";
 import type { Task } from "@/db/schema";
@@ -38,13 +39,22 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
     </div>
   );
 
-  const area = (name: string, label: string, value: string, rows = 4, hint?: string) => (
+  // ô văn bản Markdown; "line" = mỗi dòng một mục (chỉ định dạng trong dòng)
+  const area = (
+    name: string,
+    label: string,
+    value: string,
+    rows = 4,
+    hint?: string,
+    opts: { variant?: "full" | "line"; mono?: boolean } = {},
+  ) => (
     <div>
-      <label className="label">
+      <label className="label flex flex-wrap items-baseline gap-x-2">
         {label}
-        {hint && <span className="ml-2 font-normal normal-case tracking-normal text-slate-400">{hint}</span>}
+        {hint && <span className="font-normal normal-case tracking-normal text-slate-400">{hint}</span>}
+        {opts.variant !== "line" && <MarkdownHint />}
       </label>
-      <textarea name={name} defaultValue={value} rows={rows} className="input font-[inherit]" />
+      <MarkdownField name={name} defaultValue={value} rows={rows} variant={opts.variant} mono={opts.mono} />
     </div>
   );
 
@@ -63,10 +73,10 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
           />
         </div>
         {area("description", "Mô tả", t?.description ?? "", 6, "vấn đề + vì sao quan trọng")}
-        {area("steps", "Việc cần làm", (t?.steps ?? []).join("\n"), 5, "mỗi dòng một bước")}
-        {area("doneCriteria", "Tiêu chí xong", (t?.doneCriteria ?? []).join("\n"), 4, "mỗi dòng một tiêu chí")}
-        {area("evidence", "Bằng chứng", (t?.evidence ?? []).join("\n"), 4, "mỗi dòng một tệp:dòng")}
-        {area("tests", "Kiểm thử", (t?.tests ?? []).join("\n"), 3, "mỗi dòng một bài")}
+        {area("steps", "Việc cần làm", (t?.steps ?? []).join("\n"), 5, "mỗi dòng một bước", { variant: "line" })}
+        {area("doneCriteria", "Tiêu chí xong", (t?.doneCriteria ?? []).join("\n"), 4, "mỗi dòng một tiêu chí", { variant: "line" })}
+        {area("evidence", "Bằng chứng", (t?.evidence ?? []).join("\n"), 4, "mỗi dòng một tệp:dòng", { variant: "line", mono: true })}
+        {area("tests", "Kiểm thử", (t?.tests ?? []).join("\n"), 3, "mỗi dòng một bài", { variant: "line", mono: true })}
         {area("risk", "Rủi ro", t?.risk ?? "", 3)}
         <fieldset className="card space-y-3 p-4">
           <legend className="px-1 text-sm font-semibold">Liên quan</legend>
@@ -85,11 +95,11 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
             <input
               name="relTasks"
               defaultValue={(t?.related.viec ?? []).join(", ")}
-              placeholder="BE-002, FE-001"
+              placeholder="SIA-002, SIA-010a"
               className="input"
             />
           </div>
-          {area("relDocs", "Tài liệu", (t?.related.tai_lieu ?? []).join("\n"), 2, "mỗi dòng một tài liệu")}
+          {area("relDocs", "Tài liệu", (t?.related.tai_lieu ?? []).join("\n"), 2, "mỗi dòng một tài liệu", { variant: "line" })}
         </fieldset>
       </div>
 
@@ -97,7 +107,7 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
         <div className="card space-y-3 p-4">
           {select("status", "Trạng thái", STATUSES, t?.status ?? "moi")}
           {select("priority", "Ưu tiên", PRIORITIES, t?.priority ?? "P2")}
-          {select("area", t ? "Mảng (id giữ nguyên)" : "Mảng (quyết định tiền tố id)", AREAS, t?.area ?? "BE")}
+          {select("area", "Mảng (thẻ đầu tiêu đề)", AREAS, t?.area ?? "BE")}
           {select("type", "Loại", TYPES, t?.type ?? "loi")}
           {select(
             "sprint",
@@ -147,7 +157,7 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
           </div>
           <div>
             <label className="label">Lý do</label>
-            <textarea name="approvalWhy" defaultValue={t?.approval?.ly_do ?? ""} rows={2} className="input" />
+            <MarkdownField name="approvalWhy" defaultValue={t?.approval?.ly_do ?? ""} rows={2} variant="line" />
           </div>
         </div>
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}

@@ -49,6 +49,18 @@ Việc, đợt và AR/QD thuộc từng dự án. Người dùng và token dùng
 - `dot` và `viec_cha` phải thuộc cùng dự án với việc.
 - Chỉ admin thêm được dự án, trên web ở trang **Quản trị → Dự án**.
 
+## Văn bản là Markdown
+
+`mo_ta`, `rui_ro`, `nguon`, `can_phe_duyet.ly_do`, `noi_dung` của bình luận, `ghi` của nhật ký và dữ liệu AR/QD được lưu nguyên dạng chữ và hiển thị dưới dạng Markdown kiểu GitHub:
+- Đậm, nghiêng, gạch ngang, `code`, khối code, link, danh sách, việc cần tích, trích dẫn, bảng.
+- Xuống dòng một lần (`\n`) là xuống dòng.
+- Id việc tự thành liên kết.
+- HTML không được render.
+
+Phần tử của các trường danh sách (`viec_can_lam`, `tieu_chi_xong`, `bang_chung`, `kiem_thu`) là một dòng, chỉ dùng định dạng trong dòng. `tieu_de` là chữ thường.
+
+Trong JSON, xuống dòng viết là `\n`. Với CLI: `--mo_ta_file=tệp.md` hoặc `comment <ID> -` (đọc stdin).
+
 ## Endpoint
 
 Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, API trả `{ "loi": "…", "chi_tiet"?: […] }`.

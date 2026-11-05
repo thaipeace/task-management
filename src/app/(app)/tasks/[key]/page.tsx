@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { addComment, addLog } from "@/app/actions/tasks";
 import { ProjectLink } from "@/components/project-switcher";
+import { MarkdownField } from "@/components/markdown-field";
 import { IdLinks, RichText } from "@/components/rich-text";
 import { Subtasks } from "@/components/subtasks";
 import { AssigneeSelect, CommentBody, DeleteCommentButton, StatusSelect } from "@/components/task-quick";
@@ -150,7 +151,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
             <form action={addComment.bind(null, t.key)} className="mt-3 flex gap-3">
               <Avatar name={me.name} size={28} />
               <div className="flex-1">
-                <textarea name="body" rows={2} required placeholder="Thêm bình luận…" className="input" />
+                <MarkdownField name="body" rows={3} required placeholder="Thêm bình luận… (Markdown: **đậm**, `code`, [link](url))" />
                 <button className="btn-primary mt-2">Gửi</button>
               </div>
             </form>
@@ -165,7 +166,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
               {logs.map((l) => (
                 <li key={l.id}>
                   <span className="mr-2 font-mono text-xs text-slate-500">{l.date}</span>
-                  <RichText text={l.text} />
+                  <RichText text={l.text} inline />
                 </li>
               ))}
             </ol>
@@ -290,7 +291,7 @@ function ListSection({
               <span className="w-5 shrink-0 text-right text-slate-400">
                 {check ? "☐" : ordered ? `${i + 1}.` : "•"}
               </span>
-              <RichText text={it} className={mono ? "font-mono text-xs leading-5" : ""} />
+              <RichText text={it} inline className={mono ? "font-mono text-xs leading-5" : ""} />
             </li>
           ))}
         </ul>

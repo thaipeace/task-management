@@ -15,6 +15,28 @@ Task Board quản lý backlog kỹ thuật, chia theo **dự án**. Skill này �
 - Id cũ (`BE-010`, `FE-010`…) vẫn dùng được trong lệnh: API tự đổi sang id mới. Nhưng khi **viết** (mô tả, nhật ký, bình luận, `phu_thuoc`, `lien_quan.viec`, `viec_cha`) thì luôn dùng id mới. Muốn biết id mới thì chạy `get <id cũ>`.
 - AR / QD giữ id riêng (`AR-003`, `QD-004`).
 
+## Định dạng văn bản: Markdown
+
+`mo_ta`, `rui_ro`, `nguon`, `can_phe_duyet.ly_do`, bình luận, nhật ký, AR/QD và từng dòng của các trường danh sách đều hiển thị dưới dạng **Markdown kiểu GitHub**:
+- `**đậm**`, `*nghiêng*`, `~~gạch~~`, `` `code` ``, link `[chữ](https://…)`.
+- Khối code ``` nhiều dòng, danh sách `- `, `1. `, việc cần tích `- [ ] `, trích dẫn `> `, bảng, tiêu đề `### `.
+- Xuống dòng một lần là xuống dòng thật.
+- Id việc (`SIA-010a`, `QD-002`) tự thành liên kết; đừng bọc id trong link hay trong `code`.
+- Không dùng HTML: thẻ HTML hiện nguyên chữ.
+- Trường danh sách (`viec_can_lam`, `tieu_chi_xong`, `bang_chung`, `kiem_thu`): mỗi phần tử một dòng, chỉ dùng định dạng trong dòng (đậm, code, link), không lồng danh sách hay khối code.
+- Tiêu đề (`tieu_de`) là chữ thường một dòng, không dùng Markdown.
+
+Văn bản nhiều dòng: ghi ra tệp rồi dùng `--mo_ta_file=tệp.md` (mọi trường đều có dạng `--<trường>_file=`), hoặc truyền qua stdin bằng `-`:
+
+```bash
+node .claude/skills/task-board/scripts/tm.mjs comment SIA-010a - <<'MD'
+**Đã tái hiện** trên bản dev:
+- Lệnh: `npm run dev -- --remote`
+- Xem thêm [tài liệu Cloudflare](https://developers.cloudflare.com/)
+MD
+node .claude/skills/task-board/scripts/tm.mjs update SIA-010a --mo_ta_file=mo-ta.md
+```
+
 ## Chuẩn bị (một lần)
 
 CLI cần hai biến `TM_API_URL` và `TM_API_TOKEN`. Nó đọc từ biến môi trường, hoặc tự nạp `.env.local` / `.env` ở thư mục đang chạy.

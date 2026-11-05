@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { assignTask, deleteComment, setStatus, updateComment } from "@/app/actions/tasks";
 import { STATUSES } from "@/lib/constants";
+import { MarkdownField } from "./markdown-field";
 
 export function StatusSelect({ taskKey, status }: { taskKey: string; status: string }) {
   const [pending, start] = useTransition();
@@ -114,15 +115,7 @@ export function CommentBody({
       }}
       className="mt-1"
     >
-      <textarea
-        name="body"
-        defaultValue={body}
-        rows={3}
-        required
-        autoFocus
-        onKeyDown={(e) => e.key === "Escape" && setEditing(false)}
-        className="input"
-      />
+      <MarkdownField name="body" defaultValue={body} rows={4} required autoFocus onEscape={() => setEditing(false)} />
       <div className="mt-1 flex items-center gap-2">
         <button disabled={pending} className="btn-primary py-1 text-xs">
           {pending ? "Đang lưu…" : "Lưu"}

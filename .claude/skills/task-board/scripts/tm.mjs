@@ -4,7 +4,7 @@
 // TM_PROJECT (tuỳ chọn): mã dự án mặc định cho create / list / sprints, vd. SIA. Cờ --du_an ghi đè.
 // Tài liệu đầy đủ: ../reference/API.md
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 for (const f of [".env.local", ".env"]) {
   if (existsSync(f) && (!process.env.TM_API_URL || !process.env.TM_API_TOKEN)) {
@@ -23,7 +23,7 @@ const HELP = `Dùng:
   tm get <ID>                            chi tiết, kèm nhật ký + bình luận
   tm create --tieu_de="…" --mang=BE [--du_an=SIA] [trường khác…]
   tm update <ID> [--trang_thai=xong] [trường khác…]
-  tm comment <ID> "nội dung"
+  tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm log <ID> "một dòng nhật ký"
 
 Trường: tieu_de mang loai dot uu_tien trang_thai uoc_luong mo_ta rui_ro nhanh_goi_y nguon nguoi_lam khoa_ngoai
@@ -31,6 +31,8 @@ Trường danh sách (lặp cờ để thêm nhiều dòng): bang_chung viec_can
 Dự án: --du_an hoặc biến TM_PROJECT; không có thì list/sprints lấy mọi dự án, create vào dự án mặc định.
 Id việc: <MÃ>-<số> (SIA-019, SIA-010a), cấp tự động; id cũ BE-010… vẫn dùng được.
 Tiêu đề: server tự thêm "[mang] " ở đầu – không cần gõ.
+Văn bản (mo_ta, rui_ro, bình luận, nhật ký…) là Markdown: **đậm** *nghiêng* \`code\` [link](url), danh sách, khối code.
+Văn bản dài nhiều dòng: --mo_ta_file=mo-ta.md (mọi trường: --<trường>_file=đường-dẫn), hoặc --mo_ta=- để đọc stdin.
 Giá trị "null" = xoá trường. Hoặc gửi nguyên JSON: --json-body='{"tieu_de":"…"}' / --file=viec.json`;
 
 const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc"];
@@ -58,8 +60,12 @@ async function bodyFromFlags(flags) {
   }
   if (flags["json-body"]) return JSON.parse(flags["json-body"][0]);
   const body = {};
-  for (const [k, vs] of Object.entries(flags)) {
-    if (k === "json") continue;
+  for (const [rawKey, rawVs] of Object.entries(flags)) {
+    if (rawKey === "json") continue;
+    // --mo_ta_file=đường-dẫn → mo_ta = nội dung tệp; --mo_ta=- → đọc stdin
+    const fromFile = rawKey.endsWith("_file");
+    const k = fromFile ? rawKey.slice(0, -5) : rawKey;
+    const vs = rawVs.map((v) => (fromFile ? readFileSync(v, "utf8").replace(/\n$/, "") : readText(v)));
     if (LIST_FIELDS.includes(k)) body[k] = vs.filter((v) => v !== "null");
     else if (k === "lien_quan" || k === "can_phe_duyet") body[k] = vs[0] === "null" ? null : JSON.parse(vs[0]);
     else body[k] = vs[0] === "null" ? null : vs[0];
@@ -86,6 +92,11 @@ async function call(method, path, body) {
     process.exit(1);
   }
   return data;
+}
+
+// "-" = đọc toàn bộ stdin (cho văn bản Markdown nhiều dòng qua heredoc)
+function readText(v) {
+  return v === "-" ? readFileSync(0, "utf8").replace(/\n$/, "") : v;
 }
 
 const print = (x) => console.log(JSON.stringify(x, null, 2));
@@ -135,11 +146,11 @@ switch (cmd) {
     break;
   case "comment":
     if (!id || !text) throw new Error("Dùng: tm comment <ID> \"nội dung\"");
-    print(await call("POST", `/tasks/${id}/comments`, { noi_dung: text }));
+    print(await call("POST", `/tasks/${id}/comments`, { noi_dung: readText(text) }));
     break;
   case "log":
     if (!id || !text) throw new Error("Dùng: tm log <ID> \"nội dung\"");
-    print(await call("POST", `/tasks/${id}/logs`, { ghi: text }));
+    print(await call("POST", `/tasks/${id}/logs`, { ghi: readText(text) }));
     break;
   default:
     console.log(HELP);

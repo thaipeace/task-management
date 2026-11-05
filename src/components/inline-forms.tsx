@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { MarkdownField, MarkdownHint } from "./markdown-field";
 import { useFormAction } from "./use-form-action";
 import { deleteRecord, deleteSprint, saveRecord, saveSprint, type TaskFormState } from "@/app/actions/tasks";
 
@@ -90,8 +91,10 @@ export function RecordForm({
   const str = (k: string) => (data?.[k] == null ? "" : String(data[k]));
   const field = (name: string, label: string, rows = 2) => (
     <div>
-      <label className="label">{label}</label>
-      <textarea name={name} defaultValue={str(name)} rows={rows} className="input" />
+      <label className="label flex items-baseline gap-2">
+        {label} <MarkdownHint />
+      </label>
+      <MarkdownField name={name} defaultValue={str(name)} rows={rows} />
     </div>
   );
   return (

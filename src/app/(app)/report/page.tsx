@@ -109,7 +109,7 @@ async function ReportContent() {
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-700">
                       {s.lines.map((l, i) => (
                         <li key={i}>
-                          <RichText text={l} />
+                          <RichText text={l} inline />
                         </li>
                       ))}
                     </ul>
