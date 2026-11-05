@@ -109,17 +109,15 @@ export function Board({ tasks: initial }: { tasks: TaskRow[] }) {
                 e.preventDefault();
                 onDrop(col.value, indexFromPointer(e));
               }}
-              className={`flex w-72 shrink-0 flex-col rounded-lg bg-slate-100 p-2 transition-colors ${
-                isTarget ? "bg-blue-50 ring-2 ring-brand/30" : ""
+              className={`flex w-72 shrink-0 flex-col rounded-lg border-t-4 p-2 transition-shadow ${col.column} ${col.accent} ${
+                isTarget ? "ring-2 ring-brand/40" : ""
               }`}
             >
               <div className="flex items-center justify-between px-1.5 pt-1 pb-2">
-                <span className="text-xs font-semibold tracking-wide text-slate-600 uppercase">
+                <span className="text-xs font-semibold tracking-wide text-slate-700 uppercase">
                   {col.label}
                 </span>
-                <span className="rounded-full bg-slate-200 px-2 text-xs text-slate-600">
-                  {items.length}
-                </span>
+                <span className={`rounded-full px-2 text-xs font-semibold ${col.count}`}>{items.length}</span>
               </div>
               <div className="flex min-h-24 flex-1 flex-col gap-2">
                 {items.map((t, i) => (
@@ -178,6 +176,15 @@ function Card({
         dragging ? "opacity-40" : ""
       } ${t.status === "xong" || t.status === "huy" ? "opacity-70" : ""}`}
     >
+      {t.parentKey && (
+        <div
+          title={`Việc con của ${t.parentKey}${t.parentTitle ? ` · ${t.parentTitle}` : ""}`}
+          className="mb-1 truncate text-[11px] text-slate-500"
+        >
+          ↳ <span className="font-semibold">{t.parentKey}</span>
+          {t.parentTitle && <span> · {t.parentTitle}</span>}
+        </div>
+      )}
       <div
         className={`text-sm leading-snug text-slate-800 ${t.status === "huy" ? "line-through" : ""}`}
       >

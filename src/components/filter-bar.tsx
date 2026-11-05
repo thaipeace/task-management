@@ -11,7 +11,7 @@ type Props = {
   users: { id: number; name: string }[];
 };
 
-type ListKey = Exclude<keyof TaskFilters, "q">;
+type ListKey = Exclude<keyof TaskFilters, "q" | "sub">;
 type Option = { value: string; label: string; short?: string };
 
 export function FilterBar({ filters: current, sprints, users }: Props) {
@@ -26,7 +26,11 @@ export function FilterBar({ filters: current, sprints, users }: Props) {
     const next = { ...filters, ...patch };
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(next)) {
-      const value = Array.isArray(v) ? v.join(",") : v;
+      if (k === "sub") {
+        if (v === false) sp.set("sub", "0");
+        continue;
+      }
+      const value = Array.isArray(v) ? v.join(",") : typeof v === "string" ? v : "";
       if (value) sp.set(k, value);
     }
     // dấu phẩy giữ nguyên cho URL dễ đọc: ?area=BE,FE
@@ -54,7 +58,8 @@ export function FilterBar({ filters: current, sprints, users }: Props) {
     />
   );
 
-  const active = !!filters.q || (["sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
+  const active =
+    !!filters.q || !filters.sub || (["sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -80,12 +85,21 @@ export function FilterBar({ filters: current, sprints, users }: Props) {
         { value: "none", label: "Chưa giao", short: "chưa giao" },
         ...users.map((u) => ({ value: String(u.id), label: u.name })),
       ])}
+      <label className="flex items-center gap-1.5 px-1 text-sm text-slate-600">
+        <input
+          type="checkbox"
+          checked={filters.sub}
+          onChange={(e) => apply({ sub: e.target.checked })}
+          className="accent-brand"
+        />
+        Hiện việc con
+      </label>
       {active && (
         <button
           onClick={() => {
             setQ("");
             startTransition(() => {
-              setFilters({ sprint: [], area: [], priority: [], type: [], assignee: [] });
+              setFilters({ sprint: [], area: [], priority: [], type: [], assignee: [], sub: true });
               router.replace(pathname);
             });
           }}

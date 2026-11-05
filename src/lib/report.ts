@@ -1,11 +1,12 @@
 import "server-only";
-import { and, asc, eq, inArray, isNull, like } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, like } from "drizzle-orm";
 import { db } from "@/db";
 import { records, sprints, taskLogs, tasks, users } from "@/db/schema";
 import { AREAS, PRIORITIES, STATUSES, labelOf, today } from "./constants";
 import { stripAreaTag } from "./task-keys";
 
-// Số liệu cho trang Báo cáo. Đếm theo việc lớn (việc con là phần nhỏ của việc cha, đếm cả hai sẽ trùng).
+// Số liệu cho trang Báo cáo. Đếm theo đơn vị công việc: việc con và việc không chia nhỏ.
+// Việc cha đã chia thành việc con chỉ là nhóm – đếm cả cha lẫn con sẽ trùng.
 
 export const OPEN = ["moi", "san-sang", "dang-lam", "cho-duyet"];
 // thứ tự trạng thái trên biểu đồ tiến độ: từ chưa bắt đầu tới xong (huỷ đứng riêng)
@@ -25,8 +26,7 @@ export type ReportTask = {
   createdOn: string;
   doneOn: string | null;
   needsApproval: { ai: string; ly_do: string } | null;
-  subTotal: number;
-  subDone: number;
+  parentKey: string | null;
 };
 
 export async function getReport(projectId: number) {
@@ -43,15 +43,16 @@ export async function getReport(projectId: number) {
         updatedOn: tasks.updatedOn,
         approval: tasks.approval,
         assignee: users.name,
+        parentKey: tasks.parentKey,
       })
       .from(tasks)
       .leftJoin(users, eq(users.id, tasks.assigneeId))
-      .where(and(eq(tasks.projectId, projectId), isNull(tasks.parentKey)))
+      .where(eq(tasks.projectId, projectId))
       .orderBy(asc(tasks.seq)),
     db
-      .select({ parent: tasks.parentKey, status: tasks.status })
+      .select({ parent: tasks.parentKey })
       .from(tasks)
-      .where(eq(tasks.projectId, projectId)),
+      .where(and(eq(tasks.projectId, projectId), isNotNull(tasks.parentKey))),
     db
       .select()
       .from(sprints)
@@ -78,31 +79,25 @@ export async function getReport(projectId: number) {
 
   const doneOn = new Map<string, string>();
   for (const l of doneLogs) doneOn.set(l.key, l.date);
-  const subs = new Map<string, { total: number; done: number }>();
-  for (const s of subRows) {
-    if (!s.parent) continue;
-    const v = subs.get(s.parent) ?? { total: 0, done: 0 };
-    v.total++;
-    if (s.status === "xong") v.done++;
-    subs.set(s.parent, v);
-  }
+  const parents = new Set(subRows.map((s) => s.parent));
 
-  const list: ReportTask[] = taskRows.map((t) => ({
-    key: t.key,
-    title: stripAreaTag(t.title),
-    area: t.area,
-    areaLabel: (labelOf(AREAS, t.area).split("·")[1] ?? t.area).trim(),
-    priority: t.priority,
-    status: t.status,
-    sprint: t.sprint,
-    assignee: t.assignee,
-    createdOn: t.createdOn,
-    // việc import đã xong sẵn không có dòng nhật ký chuyển trạng thái – lấy ngày cập nhật
-    doneOn: t.status === "xong" ? (doneOn.get(t.key) ?? t.updatedOn) : null,
-    needsApproval: t.approval,
-    subTotal: subs.get(t.key)?.total ?? 0,
-    subDone: subs.get(t.key)?.done ?? 0,
-  }));
+  const list: ReportTask[] = taskRows
+    .filter((t) => !parents.has(t.key))
+    .map((t) => ({
+      key: t.key,
+      title: stripAreaTag(t.title),
+      area: t.area,
+      areaLabel: (labelOf(AREAS, t.area).split("·")[1] ?? t.area).trim(),
+      priority: t.priority,
+      status: t.status,
+      sprint: t.sprint,
+      assignee: t.assignee,
+      createdOn: t.createdOn,
+      // việc import đã xong sẵn không có dòng nhật ký chuyển trạng thái – lấy ngày cập nhật
+      doneOn: t.status === "xong" ? (doneOn.get(t.key) ?? t.updatedOn) : null,
+      needsApproval: t.approval,
+      parentKey: t.parentKey,
+    }));
 
   const count = (f: (t: ReportTask) => boolean) => list.filter(f).length;
   const active = list.filter((t) => t.status !== "huy");
@@ -209,7 +204,7 @@ const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 
 function line(t: ReportTask, withStatus = true) {
   const who = t.assignee ? `, ${t.assignee}` : "";
-  const sub = t.subTotal ? `, ${t.subDone}/${t.subTotal} phần nhỏ xong` : "";
+  const sub = t.parentKey ? `, thuộc ${t.parentKey}` : "";
   const st = withStatus ? ` – ${STATUS_WORD[t.status] ?? t.status}${who}${sub}` : who ? ` – ${t.assignee}` : "";
   return `${t.title} [${t.areaLabel}] (${t.key})${st}`;
 }

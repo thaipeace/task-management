@@ -12,6 +12,7 @@ export type TaskFilters = {
   priority: string[];
   type: string[];
   assignee: string[]; // id | "me" | "none"
+  sub: boolean; // hiện việc con (mặc định có; ?sub=0 để ẩn)
 };
 
 export const LIST_FILTER_KEYS = ["sprint", "area", "priority", "type", "assignee"] as const;
@@ -29,6 +30,7 @@ export function readFilters(sp: Record<string, string | string[] | undefined>): 
     priority: list("priority"),
     type: list("type"),
     assignee: list("assignee"),
+    sub: sp.sub !== "0",
   };
 }
 
@@ -41,9 +43,10 @@ function inListOrNull(col: typeof tasks.sprint, values: string[]) {
   return or(...parts)!;
 }
 
-// Bảng / backlog: chỉ việc lớn (việc con nằm trong trang của việc cha), kèm tiến độ việc con
+// Bảng / backlog: việc lớn và việc con (mỗi việc con một thẻ, ghi rõ việc cha), kèm tiến độ việc con
 export async function listTasks(projectId: number, f: TaskFilters, meId: number) {
-  const where: SQL[] = [eq(tasks.projectId, projectId), isNull(tasks.parentKey)];
+  const where: SQL[] = [eq(tasks.projectId, projectId)];
+  if (!f.sub) where.push(isNull(tasks.parentKey));
   if (f.q) {
     const like = `%${f.q}%`;
     where.push(
@@ -84,6 +87,9 @@ export async function listTasks(projectId: number, f: TaskFilters, meId: number)
       dependsOn: tasks.dependsOn,
       assigneeId: tasks.assigneeId,
       assigneeName: users.name,
+      parentKey: tasks.parentKey,
+      parentTitle: sql<string | null>`(select p.title from tasks p where p.key = ${tasks.parentKey})`,
+      subOrder: tasks.subOrder,
       subTotal: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key})`,
       subDone: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key} and c.status = 'xong')`,
     })

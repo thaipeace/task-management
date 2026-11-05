@@ -43,16 +43,7 @@ async function BacklogContent({ searchParams }: Pick<PageProps<"/backlog">, "sea
     ...sprints.map((s) => ({ code: s.code as string | null, description: s.description })),
     { code: null, description: "Chưa xếp vào đợt nào" },
   ]
-    .map((g) => ({
-      ...g,
-      items: tasks
-        .filter((t) => t.sprint === g.code)
-        .sort(
-          (a, b) =>
-            (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9) ||
-            a.key.localeCompare(b.key),
-        ),
-    }))
+    .map((g) => ({ ...g, items: nest(tasks.filter((t) => t.sprint === g.code)) }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -77,6 +68,20 @@ async function BacklogContent({ searchParams }: Pick<PageProps<"/backlog">, "sea
   );
 }
 
+const byPriority = (a: TaskRow, b: TaskRow) =>
+  (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9) || a.key.localeCompare(b.key);
+
+// Việc con đứng ngay dưới việc cha (theo thứ tự kéo thả) nếu cha cùng nhóm; không thì đứng riêng, có nhãn ↳
+function nest(items: TaskRow[]): (TaskRow & { nested: boolean })[] {
+  const keys = new Set(items.map((t) => t.key));
+  const children = (key: string) =>
+    items.filter((c) => c.parentKey === key).sort((a, b) => a.subOrder - b.subOrder || a.key.localeCompare(b.key));
+  return items
+    .filter((t) => !t.parentKey || !keys.has(t.parentKey))
+    .sort(byPriority)
+    .flatMap((t) => [{ ...t, nested: false }, ...children(t.key).map((c) => ({ ...c, nested: true }))]);
+}
+
 function SprintGroup({
   code,
   description,
@@ -84,17 +89,19 @@ function SprintGroup({
 }: {
   code: string | null;
   description: string;
-  items: TaskRow[];
+  items: (TaskRow & { nested: boolean })[];
 }) {
-  const done = items.filter((t) => t.status === "xong").length;
-  const pct = Math.round((done / items.length) * 100);
+  // việc cha đã chia nhỏ chỉ là nhóm – tiến độ đếm theo việc con và việc không chia nhỏ (như trang Báo cáo)
+  const units = items.filter((t) => !t.subTotal && t.status !== "huy");
+  const done = units.filter((t) => t.status === "xong").length;
+  const pct = units.length ? Math.round((done / units.length) * 100) : 0;
   return (
     <section className="card overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
         <h2 className="font-semibold">{code ?? "Chưa xếp đợt"}</h2>
         <span className="text-sm text-slate-500">{description}</span>
         <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
-          {done}/{items.length} xong
+          {done}/{units.length} xong
           <span className="h-1.5 w-24 overflow-hidden rounded bg-slate-200">
             <span className="block h-full bg-green-500" style={{ width: `${pct}%` }} />
           </span>
@@ -105,11 +112,17 @@ function SprintGroup({
           <li key={t.key}>
             <Link
               href={`/tasks/${t.key}`}
-              className="flex items-center gap-3 px-4 py-2 text-sm hover:bg-slate-50"
+              className={`flex items-center gap-3 py-2 pr-4 text-sm hover:bg-slate-50 ${t.nested ? "bg-slate-50/60 pl-10" : "pl-4"}`}
             >
+              {t.nested && <span className="-ml-5 w-2 text-slate-400">↳</span>}
               <TypeIcon type={t.type} />
               <span className="min-w-16 shrink-0 text-xs font-semibold whitespace-nowrap text-slate-500">{t.key}</span>
               <span className={`min-w-0 flex-1 truncate ${t.status === "huy" ? "line-through text-slate-400" : ""}`}>
+                {t.parentKey && !t.nested && (
+                  <span title={t.parentTitle ?? undefined} className="mr-1.5 text-xs text-slate-500">
+                    ↳ {t.parentKey}
+                  </span>
+                )}
                 {t.title}
               </span>
               <SubtaskProgress done={t.subDone} total={t.subTotal} />

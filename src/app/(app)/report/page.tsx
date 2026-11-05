@@ -34,7 +34,7 @@ async function ReportContent() {
     <>
       <PageHeader
         title={`Báo cáo · ${project.name}`}
-        subtitle={`Tình hình đến ngày ${date.split("-").reverse().join("/")}. Đếm theo việc lớn; việc con tính trong việc cha.`}
+        subtitle={`Tình hình đến ngày ${date.split("-").reverse().join("/")}. Đếm theo đơn vị công việc: việc con và việc không chia nhỏ (việc cha đã chia nhỏ chỉ là nhóm).`}
         actions={<CopySummary text={summaryText(sections, project.name, date.split("-").reverse().join("/"))} />}
       />
 

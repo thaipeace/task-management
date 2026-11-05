@@ -1,12 +1,55 @@
 // Giá trị và nhãn lấy theo _huong_dan.truong trong backlog.json
 
+// color: nhãn trạng thái; column / accent / count: nền cột, vạch màu đầu cột, ô đếm trên Bảng
 export const STATUSES = [
-  { value: "moi", label: "Mới", color: "bg-slate-100 text-slate-700" },
-  { value: "san-sang", label: "Sẵn sàng", color: "bg-sky-100 text-sky-800" },
-  { value: "dang-lam", label: "Đang làm", color: "bg-blue-100 text-blue-800" },
-  { value: "cho-duyet", label: "Chờ duyệt", color: "bg-amber-100 text-amber-800" },
-  { value: "xong", label: "Xong", color: "bg-green-100 text-green-800" },
-  { value: "huy", label: "Huỷ", color: "bg-zinc-200 text-zinc-600" },
+  {
+    value: "moi",
+    label: "Mới",
+    color: "bg-slate-100 text-slate-700",
+    column: "bg-slate-100",
+    accent: "border-t-slate-400",
+    count: "bg-slate-200 text-slate-700",
+  },
+  {
+    value: "san-sang",
+    label: "Sẵn sàng",
+    color: "bg-sky-100 text-sky-800",
+    column: "bg-sky-100/70",
+    accent: "border-t-sky-500",
+    count: "bg-sky-200 text-sky-900",
+  },
+  {
+    value: "dang-lam",
+    label: "Đang làm",
+    color: "bg-blue-100 text-blue-800",
+    column: "bg-blue-100/70",
+    accent: "border-t-blue-600",
+    count: "bg-blue-200 text-blue-900",
+  },
+  {
+    value: "cho-duyet",
+    label: "Chờ duyệt",
+    color: "bg-amber-100 text-amber-800",
+    column: "bg-amber-100/80",
+    accent: "border-t-amber-500",
+    count: "bg-amber-200 text-amber-900",
+  },
+  {
+    value: "xong",
+    label: "Xong",
+    color: "bg-green-100 text-green-800",
+    column: "bg-green-100/70",
+    accent: "border-t-green-600",
+    count: "bg-green-200 text-green-900",
+  },
+  {
+    value: "huy",
+    label: "Huỷ",
+    color: "bg-zinc-200 text-zinc-600",
+    column: "bg-zinc-200/70",
+    accent: "border-t-zinc-400",
+    count: "bg-zinc-300 text-zinc-700",
+  },
 ] as const;
 
 export const PRIORITIES = [
