@@ -24,6 +24,7 @@ const HELP = `Dùng:
   tm create --tieu_de="…" --mang=BE [--du_an=SIA] [trường khác…]
   tm update <ID> [--trang_thai=xong] [trường khác…]
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
+  tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
   tm log <ID> "một dòng nhật ký"
 
 Trường: tieu_de mang loai dot uu_tien trang_thai uoc_luong mo_ta rui_ro nhanh_goi_y nguon nguoi_lam khoa_ngoai
@@ -101,7 +102,7 @@ function readText(v) {
 
 const print = (x) => console.log(JSON.stringify(x, null, 2));
 const { pos, flags } = parseArgs(process.argv.slice(2));
-const [cmd, id, text] = pos;
+const [cmd, id, text, text2] = pos;
 // dự án mặc định từ môi trường cho lệnh chạy trong một dự án
 if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints"].includes(cmd)) {
   flags.du_an = [process.env.TM_PROJECT];
@@ -147,6 +148,10 @@ switch (cmd) {
   case "comment":
     if (!id || !text) throw new Error("Dùng: tm comment <ID> \"nội dung\"");
     print(await call("POST", `/tasks/${id}/comments`, { noi_dung: readText(text) }));
+    break;
+  case "comment-edit":
+    if (!id || !text || !text2) throw new Error("Dùng: tm comment-edit <ID> <id bình luận> \"nội dung mới\"");
+    print(await call("PATCH", `/tasks/${id}/comments/${text}`, { noi_dung: readText(text2) }));
     break;
   case "log":
     if (!id || !text) throw new Error("Dùng: tm log <ID> \"nội dung\"");

@@ -75,6 +75,7 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | GET | `/tasks/{id}` | Một việc, kèm `nhat_ky`, `binh_luan` (có `sua_luc` nếu bình luận đã sửa) và `viec_con` |
 | PATCH | `/tasks/{id}` | Sửa một phần: chỉ gửi trường cần đổi |
 | POST | `/tasks/{id}/comments` | `{ "noi_dung": "…" }` → thêm bình luận |
+| PATCH | `/tasks/{id}/comments/{comment_id}` | `{ "noi_dung": "…" }` → sửa bình luận (thay hẳn nội dung). Chỉ sửa được bình luận do tài khoản của token viết, không thì 403. `comment_id` là `binh_luan[].id` trong `GET /tasks/{id}` |
 | POST | `/tasks/{id}/logs` | `{ "ghi": "…" }` → thêm một dòng `nhat_ky` |
 
 API không có lệnh xoá việc. Theo quy ước của backlog, việc bỏ thì đổi `trang_thai` thành `huy`.
