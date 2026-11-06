@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { switchProject } from "@/app/actions/projects";
+import { toast } from "@/lib/toast";
 
 type P = { code: string; name: string };
 
@@ -34,7 +35,8 @@ export function ProjectSwitcher({ current, projects }: { current: P; projects: P
     setOpen(false);
     if (code === current.code) return;
     start(async () => {
-      await switchProject(code);
+      if (!(await toast.run(() => switchProject(code), { loading: "Đang chuyển dự án…", success: `Đang xem dự án ${code}`, error: "Không chuyển được dự án" })))
+        return;
       // bộ lọc (đợt, người làm…) của dự án cũ không còn nghĩa
       router.replace(LIST_PAGES.includes(pathname) ? pathname : "/board");
     });
@@ -98,8 +100,8 @@ export function ProjectLink({
       onClick={(e) => {
         e.preventDefault();
         start(async () => {
-          await switchProject(code);
-          router.push(href);
+          if (await toast.run(() => switchProject(code), { loading: "Đang chuyển dự án…", success: `Đang xem dự án ${code}`, error: "Không chuyển được dự án" }))
+            router.push(href);
         });
       }}
       className={className}

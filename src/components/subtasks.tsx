@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { addSubtask, moveSubtask, setStatus } from "@/app/actions/tasks";
-import { STATUSES, isDone } from "@/lib/constants";
+import { STATUSES, isDone, labelOf } from "@/lib/constants";
+import { toast } from "@/lib/toast";
 import { Avatar, PriorityBadge } from "./ui";
 import { useFormAction } from "./use-form-action";
 
@@ -27,7 +28,7 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
   const dragRef = useRef<string | null>(null);
   const [dragKey, setDragKey] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
-  const [state, onSubmit, pending] = useFormAction(addSubtask.bind(null, parentKey), undefined);
+  const [state, onSubmit, pending] = useFormAction(addSubtask.bind(null, parentKey), undefined, { loading: "Đang thêm việc con…" });
   const formRef = useRef<HTMLFormElement>(null);
 
   const done = items.filter((s) => isDone(s.status)).length;
@@ -63,7 +64,11 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
     if (items.find((s) => s.key === key)?.subOrder === subOrder) return;
     startTransition(async () => {
       apply({ key, subOrder });
-      await moveSubtask(key, subOrder);
+      await toast.run(() => moveSubtask(key, subOrder), {
+        loading: "Đang đổi thứ tự…",
+        success: `Đã đổi thứ tự ${key}`,
+        error: `Không đổi được thứ tự ${key} – đã hoàn lại`,
+      });
     });
   }
 
@@ -142,7 +147,11 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
                     const status = e.target.value;
                     startTransition(async () => {
                       apply({ key: s.key, status });
-                      await setStatus(s.key, status);
+                      await toast.run(() => setStatus(s.key, status), {
+                        loading: `Đang chuyển ${s.key}…`,
+                        success: `${s.key} → ${labelOf(STATUSES, status)}`,
+                        error: `Không chuyển được ${s.key} – đã hoàn lại`,
+                      });
                     });
                   }}
                   className="input w-28 py-0.5 text-xs"

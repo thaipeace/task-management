@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { addComment, addLog } from "@/app/actions/tasks";
+import { ToastForm } from "@/components/toast-form";
 import { ProjectLink } from "@/components/project-switcher";
 import { MarkdownField } from "@/components/markdown-field";
 import { IdLinks, RichText } from "@/components/rich-text";
@@ -130,13 +131,13 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
           {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} />}
 
           <CollapsibleSection title={`Bình luận (${comments.length})`} defaultOpen>
-            <form action={addComment.bind(null, t.key)} className="mb-4 flex gap-3">
+            <ToastForm action={addComment.bind(null, t.key)} loading="Đang gửi bình luận…" success="Đã gửi bình luận" error="Không gửi được bình luận" className="mb-4 flex gap-3">
               <Avatar name={me.name} size={28} />
               <div className="flex-1">
                 <MarkdownField name="body" rows={3} required placeholder="Thêm bình luận… (Markdown: **đậm**, `code`, [link](url))" />
                 <button className="btn-primary mt-2">Gửi</button>
               </div>
-            </form>
+            </ToastForm>
             <ul className="space-y-3">
               {comments.map((c) => (
                 <li key={c.id} className="flex gap-3">
@@ -158,10 +159,10 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
           </CollapsibleSection>
 
           <CollapsibleSection title={`Nhật ký (${logs.length})`}>
-            <form action={addLog.bind(null, t.key)} className="mb-3 flex gap-2">
+            <ToastForm action={addLog.bind(null, t.key)} loading="Đang ghi nhật ký…" success="Đã ghi nhật ký" error="Không ghi được nhật ký" className="mb-3 flex gap-2">
               <input name="text" required placeholder="Ghi một dòng nhật ký…" className="input" />
               <button className="btn-secondary shrink-0">Ghi</button>
-            </form>
+            </ToastForm>
             <ol className="space-y-1.5 border-l-2 border-slate-200 pl-4 text-sm">
               {logs.map((l) => (
                 <li key={l.id}>

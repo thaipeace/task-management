@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { importAction } from "@/app/actions/admin";
+import { withToast } from "./use-form-action";
 
 export function ImportForm({ project }: { project: { id: number; code: string; keyPrefix: string } }) {
-  const [state, action, pending] = useActionState(importAction, undefined);
+  const [state, action, pending] = useActionState(withToast(importAction, { loading: "Đang import…", success: "Import xong" }), undefined);
   const [mode, setMode] = useState<"merge" | "replace">("merge");
 
   return (

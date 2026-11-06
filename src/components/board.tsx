@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { moveTask } from "@/app/actions/tasks";
-import { STATUSES, isDone } from "@/lib/constants";
+import { STATUSES, isDone, labelOf } from "@/lib/constants";
+import { toast } from "@/lib/toast";
 import type { TaskRow } from "@/lib/queries";
 import { AreaBadge, Avatar, PriorityBadge, SubtaskProgress, TypeIcon } from "./ui";
 
@@ -23,7 +24,6 @@ export function Board({ tasks: initial }: { tasks: TaskRow[] }) {
   };
   const [drop, setDrop] = useState<{ status: string; index: number } | null>(null);
   const [showCancelled, setShowCancelled] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const columns = STATUSES.filter((s) => showCancelled || s.value !== "huy");
@@ -53,12 +53,13 @@ export function Board({ tasks: initial }: { tasks: TaskRow[] }) {
 
     startTransition(async () => {
       applyMove({ key, status, position });
-      try {
-        await moveTask(key, status, position);
-        setError(null);
-      } catch {
-        setError(`Không chuyển được ${key} – đã hoàn lại`);
-      }
+      // đổi thứ tự trong cùng cột thì không cần báo thành công
+      const moved = moving.status !== status;
+      await toast.run(() => moveTask(key, status, position), {
+        loading: `Đang chuyển ${key}…`,
+        success: moved ? `${key} → ${labelOf(STATUSES, status)}` : `Đã đổi thứ tự ${key}`,
+        error: `Không chuyển được ${key} – đã hoàn lại`,
+      });
     });
   }
 
@@ -76,7 +77,6 @@ export function Board({ tasks: initial }: { tasks: TaskRow[] }) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-end gap-3 text-xs text-slate-500">
-        {error && <span className="text-red-600">{error}</span>}
         <label className="flex items-center gap-1.5">
           <input
             type="checkbox"

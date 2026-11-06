@@ -10,6 +10,7 @@ import {
   type ProjectFormState,
 } from "@/app/actions/projects";
 import { useFormAction } from "./use-form-action";
+import { errorMessage, toast } from "@/lib/toast";
 
 export function NewProjectForm() {
   const [code, setCode] = useState("");
@@ -106,8 +107,8 @@ export function ProjectRow({
             disabled={pending}
             onClick={() =>
               start(async () => {
-                await switchProject(p.code);
-                router.push("/board");
+                if (await toast.run(() => switchProject(p.code), { loading: "Đang chuyển dự án…", success: `Đang xem ${p.name}`, error: "Không chuyển được dự án" }))
+                  router.push("/board");
               })
             }
             className="btn-secondary py-1 text-xs"
@@ -126,8 +127,11 @@ export function ProjectRow({
               start(async () => {
                 try {
                   await deleteProject(p.id);
+                  toast.success(`Đã xoá dự án ${p.code}`);
                 } catch (e) {
-                  setError(e instanceof Error ? e.message : "Không xoá được");
+                  const m = errorMessage(e, "Không xoá được – dự án còn việc hoặc là dự án duy nhất");
+                  setError(m);
+                  toast.error(m);
                 }
               });
             }}

@@ -1,19 +1,26 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useToastAction } from "./use-form-action";
+import { toast } from "@/lib/toast";
 import { assignTask, deleteComment, setStatus, updateComment } from "@/app/actions/tasks";
 import { STATUSES } from "@/lib/constants";
 import { MarkdownField } from "./markdown-field";
 
 export function StatusSelect({ taskKey, status }: { taskKey: string; status: string }) {
-  const [pending, start] = useTransition();
+  const [pending, run] = useToastAction();
   return (
     <select
       defaultValue={status}
       disabled={pending}
       onChange={(e) => {
         const v = e.target.value;
-        start(() => setStatus(taskKey, v));
+        const label = STATUSES.find((s) => s.value === v)?.label ?? v;
+        run(() => setStatus(taskKey, v), {
+          loading: "Đang đổi trạng thái…",
+          success: `${taskKey} → ${label}`,
+          error: "Không đổi được trạng thái",
+        });
       }}
       className="input font-semibold"
     >
@@ -35,14 +42,19 @@ export function AssigneeSelect({
   assigneeId: number | null;
   users: { id: number; name: string }[];
 }) {
-  const [pending, start] = useTransition();
+  const [pending, run] = useToastAction();
   return (
     <select
       defaultValue={assigneeId ?? ""}
       disabled={pending}
       onChange={(e) => {
         const v = e.target.value;
-        start(() => assignTask(taskKey, v ? Number(v) : null));
+        const name = users.find((u) => u.id === Number(v))?.name;
+        run(() => assignTask(taskKey, v ? Number(v) : null), {
+          loading: "Đang giao việc…",
+          success: name ? `Đã giao ${taskKey} cho ${name}` : `${taskKey} chưa giao cho ai`,
+          error: "Không giao được việc",
+        });
       }}
       className="input"
     >
@@ -57,12 +69,13 @@ export function AssigneeSelect({
 }
 
 export function DeleteCommentButton({ id }: { id: number }) {
-  const [pending, start] = useTransition();
+  const [pending, run] = useToastAction();
   return (
     <button
       disabled={pending}
       onClick={() => {
-        if (confirm("Xoá bình luận này?")) start(() => deleteComment(id));
+        if (confirm("Xoá bình luận này?"))
+          run(() => deleteComment(id), { loading: "Đang xoá bình luận…", success: "Đã xoá bình luận", error: "Không xoá được bình luận" });
       }}
       className="text-xs text-slate-400 hover:text-red-600"
     >
@@ -83,7 +96,6 @@ export function CommentBody({
   children: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   if (!editing) {
@@ -104,13 +116,12 @@ export function CommentBody({
         e.preventDefault();
         const text = String(new FormData(e.currentTarget).get("body") ?? "");
         start(async () => {
-          try {
-            await updateComment(id, text);
-            setEditing(false);
-            setError(null);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Không lưu được");
-          }
+          const ok = await toast.run(() => updateComment(id, text), {
+            loading: "Đang lưu bình luận…",
+            success: "Đã sửa bình luận",
+            error: "Không lưu được bình luận",
+          });
+          if (ok) setEditing(false);
         });
       }}
       className="mt-1"
@@ -123,7 +134,6 @@ export function CommentBody({
         <button type="button" onClick={() => setEditing(false)} className="btn-ghost py-1 text-xs">
           Huỷ
         </button>
-        {error && <span className="text-xs text-red-600">{error}</span>}
       </div>
     </form>
   );

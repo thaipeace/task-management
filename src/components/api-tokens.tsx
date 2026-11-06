@@ -1,12 +1,14 @@
 "use client";
 
+import { toast } from "@/lib/toast";
+import { withToast } from "./use-form-action";
 import { useActionState, useState, useTransition } from "react";
 import { createApiToken, revokeApiToken } from "@/app/actions/tokens";
 
 type Token = { id: number; name: string; prefix: string; createdAt: string; lastUsedAt: string | null };
 
 export function ApiTokens({ tokens }: { tokens: Token[] }) {
-  const [state, action, pending] = useActionState(createApiToken, undefined);
+  const [state, action, pending] = useActionState(withToast(createApiToken, { loading: "Đang tạo token…", success: "Đã tạo token" }), undefined);
   const [copied, setCopied] = useState(false);
   const [revoking, startRevoke] = useTransition();
   // token chỉ có sau khi bấm tạo (phía trình duyệt) nên đọc window ở đây an toàn
@@ -37,7 +39,13 @@ export function ApiTokens({ tokens }: { tokens: Token[] }) {
                 disabled={revoking}
                 onClick={() => {
                   if (confirm(`Thu hồi token "${t.name}"? Lệnh đang dùng token này sẽ bị từ chối ngay.`)) {
-                    startRevoke(() => revokeApiToken(t.id));
+                    startRevoke(async () => {
+                      await toast.run(() => revokeApiToken(t.id), {
+                        loading: "Đang thu hồi token…",
+                        success: `Đã thu hồi token "${t.name}"`,
+                        error: "Không thu hồi được token",
+                      });
+                    });
                   }
                 }}
                 className="btn-ghost py-1 text-xs text-red-700"

@@ -17,7 +17,7 @@ type Props = {
 };
 
 export function TaskForm({ action, task: t, sprints, users, defaultSprint, cancelHref }: Props) {
-  const [state, onSubmit, pending] = useFormAction(action, undefined);
+  const [state, onSubmit, pending] = useFormAction(action, undefined, t ? { loading: "Đang lưu việc…" } : { loading: "Đang tạo việc…", success: "Đã tạo việc" });
 
   const select = (
     name: string,

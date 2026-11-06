@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { MarkdownField, MarkdownHint } from "./markdown-field";
 import { useFormAction } from "./use-form-action";
+import { toast } from "@/lib/toast";
 import { deleteRecord, deleteSprint, saveRecord, saveSprint, type TaskFormState } from "@/app/actions/tasks";
 
 function Msg({ state }: { state: TaskFormState }) {
@@ -49,7 +50,13 @@ export function SprintForm({
           disabled={deleting}
           onClick={() => {
             if (confirm(`Xoá đợt ${sprint.code}? Các việc trong đợt chuyển về "Chưa xếp đợt".`)) {
-              startDelete(() => deleteSprint(projectId, sprint.code));
+              startDelete(async () => {
+                await toast.run(() => deleteSprint(projectId, sprint.code), {
+                  loading: "Đang xoá đợt…",
+                  success: `Đã xoá đợt ${sprint.code}`,
+                  error: "Không xoá được đợt",
+                });
+              });
             }
           }}
           className="btn-danger"
@@ -143,7 +150,14 @@ export function RecordForm({
             type="button"
             disabled={deleting}
             onClick={() => {
-              if (confirm(`Xoá ${recordKey}?`)) startDelete(() => deleteRecord(recordKey));
+              if (!confirm(`Xoá ${recordKey}?`)) return;
+              startDelete(async () => {
+                await toast.run(() => deleteRecord(recordKey), {
+                  loading: "Đang xoá…",
+                  success: `Đã xoá ${recordKey}`,
+                  error: `Không xoá được ${recordKey}`,
+                });
+              });
             }}
             className="btn-danger ml-auto"
           >

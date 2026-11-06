@@ -24,7 +24,7 @@ function Message({ state }: { state: FormState }) {
 }
 
 export function LoginForm() {
-  const [state, onSubmit, pending] = useFormAction(login, undefined);
+  const [state, onSubmit, pending] = useFormAction(login, undefined, { loading: "Đang đăng nhập…", success: "Đã đăng nhập" });
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <Field label="Email" name="email" type="email" autoComplete="email" required autoFocus />
@@ -38,7 +38,7 @@ export function LoginForm() {
 }
 
 export function SetupForm() {
-  const [state, onSubmit, pending] = useFormAction(setupAdmin, undefined);
+  const [state, onSubmit, pending] = useFormAction(setupAdmin, undefined, { loading: "Đang tạo tài khoản…", success: "Đã tạo tài khoản quản trị" });
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <Field label="Mã thiết lập (SETUP_SECRET)" name="secret" type="password" required autoFocus />
@@ -54,7 +54,7 @@ export function SetupForm() {
 }
 
 export function AcceptInviteForm({ token, email }: { token: string; email: string }) {
-  const [state, onSubmit, pending] = useFormAction(acceptInvite, undefined);
+  const [state, onSubmit, pending] = useFormAction(acceptInvite, undefined, { loading: "Đang tạo tài khoản…", success: "Chào mừng bạn!" });
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <input type="hidden" name="token" value={token} />

@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { useToastAction, withToast } from "./use-form-action";
 import { createInvite, revokeInvite, setUserActive, setUserRole } from "@/app/actions/admin";
 
 export function InviteForm() {
-  const [state, action, pending] = useActionState(createInvite, undefined);
+  const [state, action, pending] = useActionState(withToast(createInvite, { loading: "Đang tạo link mời…", success: "Đã tạo link mời" }), undefined);
   const [copied, setCopied] = useState(false);
   // token chỉ có sau khi bấm tạo (phía trình duyệt) nên đọc window ở đây an toàn
   const link = state?.token ? `${window.location.origin}/invite/${state.token}` : null;
@@ -53,9 +54,11 @@ export function InviteForm() {
 }
 
 export function RevokeInviteButton({ id }: { id: number }) {
-  const [pending, start] = useTransition();
+  const [pending, run] = useToastAction();
   return (
-    <button disabled={pending} onClick={() => start(() => revokeInvite(id))} className="btn-ghost text-xs text-red-700">
+    <button
+      disabled={pending}
+      onClick={() => run(() => revokeInvite(id), { loading: "Đang huỷ link…", success: "Đã huỷ link mời", error: "Không huỷ được link" })} className="btn-ghost text-xs text-red-700">
       Huỷ link
     </button>
   );
@@ -72,7 +75,7 @@ export function UserActions({
   active: boolean;
   isSelf: boolean;
 }) {
-  const [pending, start] = useTransition();
+  const [pending, run] = useToastAction();
   if (isSelf) return <span className="text-xs text-slate-400">(bạn)</span>;
   return (
     <div className="flex items-center justify-end gap-2">
@@ -81,7 +84,7 @@ export function UserActions({
         disabled={pending}
         onChange={(e) => {
           const v = e.target.value as "admin" | "member";
-          start(() => setUserRole(userId, v));
+          run(() => setUserRole(userId, v), { loading: "Đang đổi vai trò…", success: v === "admin" ? "Đã đặt làm quản trị" : "Đã đặt làm thành viên", error: "Không đổi được vai trò" });
         }}
         className="input w-auto py-1 text-xs"
       >
@@ -92,7 +95,7 @@ export function UserActions({
         disabled={pending}
         onClick={() => {
           if (!active || confirm("Khoá tài khoản này? Người dùng bị đăng xuất ngay.")) {
-            start(() => setUserActive(userId, !active));
+            run(() => setUserActive(userId, !active), { loading: active ? "Đang khoá…" : "Đang mở khoá…", success: active ? "Đã khoá tài khoản" : "Đã mở khoá tài khoản", error: "Không thực hiện được" });
           }
         }}
         className={active ? "btn-danger py-1 text-xs" : "btn-secondary py-1 text-xs"}
