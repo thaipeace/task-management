@@ -40,7 +40,7 @@ async function BoardContent({ searchParams }: Pick<PageProps<"/board">, "searchP
   return (
     <>
       <FilterBar filters={filters} sprints={sprints} users={users} />
-      <Board tasks={tasks} />
+      <Board tasks={tasks} users={users} />
     </>
   );
 }

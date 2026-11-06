@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { FilterBar } from "@/components/filter-bar";
-import { AreaBadge, Avatar, Loading, PageHeader, PriorityBadge, StatusBadge, SubtaskProgress, TypeIcon } from "@/components/ui";
+import { AssigneePicker, type PickerUser } from "@/components/assignee-picker";
+import { AreaBadge, Loading, PageHeader, PriorityBadge, StatusBadge, SubtaskProgress, TypeIcon } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { isDone } from "@/lib/constants";
 import { getCurrentProject } from "@/lib/projects";
@@ -62,7 +63,7 @@ async function BacklogContent({ searchParams }: Pick<PageProps<"/backlog">, "sea
       )}
       <div className="space-y-6">
         {groups.map((g) => (
-          <SprintGroup key={g.code ?? "none"} {...g} />
+          <SprintGroup key={g.code ?? "none"} {...g} users={users} />
         ))}
       </div>
     </>
@@ -87,10 +88,12 @@ function SprintGroup({
   code,
   description,
   items,
+  users,
 }: {
   code: string | null;
   description: string;
   items: (TaskRow & { nested: boolean })[];
+  users: PickerUser[];
 }) {
   // việc cha đã chia nhỏ chỉ là nhóm – tiến độ đếm theo việc con và việc không chia nhỏ (như trang Báo cáo)
   const units = items.filter((t) => !t.subTotal && t.status !== "huy");
@@ -110,22 +113,25 @@ function SprintGroup({
       </header>
       <ul className="divide-y divide-slate-100">
         {items.map((t) => (
+          // cả dòng bấm được nhờ link phủ trên tiêu đề; nút giao việc nằm trên lớp phủ
           <li key={t.key}>
-            <Link
-              href={`/tasks/${t.key}`}
-              className={`flex items-center gap-3 py-2 pr-4 text-sm hover:bg-slate-50 ${t.nested ? "bg-slate-50/60 pl-10" : "pl-4"}`}
+            <div
+              className={`relative flex items-center gap-3 py-2 pr-4 text-sm hover:bg-slate-50 ${t.nested ? "bg-slate-50/60 pl-10" : "pl-4"}`}
             >
               {t.nested && <span className="-ml-5 w-2 text-slate-400">↳</span>}
               <TypeIcon type={t.type} />
               <span className="min-w-16 shrink-0 text-xs font-semibold whitespace-nowrap text-slate-500">{t.key}</span>
-              <span className={`min-w-0 flex-1 truncate ${t.status === "huy" ? "line-through text-slate-400" : ""}`}>
+              <Link
+                href={`/tasks/${t.key}`}
+                className={`min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[''] ${t.status === "huy" ? "line-through text-slate-400" : ""}`}
+              >
                 {t.parentKey && !t.nested && (
                   <span title={t.parentTitle ?? undefined} className="mr-1.5 text-xs text-slate-500">
                     ↳ {t.parentKey}
                   </span>
                 )}
                 {t.title}
-              </span>
+              </Link>
               <SubtaskProgress done={t.subDone} total={t.subTotal} />
               <AreaBadge area={t.area} />
               {t.estimate && (
@@ -133,12 +139,12 @@ function SprintGroup({
                   {t.estimate}
                 </span>
               )}
-              <span className="hidden w-24 text-right sm:block">
+              <span className="hidden w-32 shrink-0 text-right whitespace-nowrap sm:block">
                 <StatusBadge status={t.status} />
               </span>
               <PriorityBadge priority={t.priority} />
-              <Avatar name={t.assigneeName} size={22} />
-            </Link>
+              <AssigneePicker taskKey={t.key} assigneeId={t.assigneeId} assigneeName={t.assigneeName} users={users} />
+            </div>
           </li>
         ))}
       </ul>

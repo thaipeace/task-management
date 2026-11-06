@@ -6,11 +6,12 @@ import { moveTask } from "@/app/actions/tasks";
 import { STATUSES, isDone, labelOf } from "@/lib/constants";
 import { toast } from "@/lib/toast";
 import type { TaskRow } from "@/lib/queries";
-import { AreaBadge, Avatar, PriorityBadge, SubtaskProgress, TypeIcon } from "./ui";
+import { AssigneePicker, type PickerUser } from "./assignee-picker";
+import { AreaBadge, PriorityBadge, SubtaskProgress, TypeIcon } from "./ui";
 
 type Move = { key: string; status: string; position: number };
 
-export function Board({ tasks: initial }: { tasks: TaskRow[] }) {
+export function Board({ tasks: initial, users }: { tasks: TaskRow[]; users: PickerUser[] }) {
   // bản lạc quan chỉ sống trong transition – xong (hoặc lỗi) thì về lại dữ liệu máy chủ
   const [tasks, applyMove] = useOptimistic(initial, (ts: TaskRow[], m: Move) =>
     ts.map((t) => (t.key === m.key ? { ...t, status: m.status, position: m.position } : t)),
@@ -125,6 +126,7 @@ export function Board({ tasks: initial }: { tasks: TaskRow[] }) {
                     {isTarget && drop.index === i && dragKey !== t.key && <DropLine />}
                     <Card
                       task={t}
+                      users={users}
                       dragging={dragKey === t.key}
                       onDragStart={() => setDragKey(t.key)}
                       onDragEnd={() => {
@@ -152,18 +154,20 @@ function DropLine() {
 
 function Card({
   task: t,
+  users,
   dragging,
   onDragStart,
   onDragEnd,
 }: {
   task: TaskRow;
+  users: PickerUser[];
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
 }) {
   return (
-    <Link
-      href={`/tasks/${t.key}`}
+    // cả thẻ bấm được nhờ link phủ (after:inset-0); nút giao việc nằm trên lớp phủ
+    <div
       data-card={t.key}
       draggable
       onDragStart={(e) => {
@@ -172,7 +176,7 @@ function Card({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`block rounded-md border border-slate-200 bg-white p-2.5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${
+      className={`relative block cursor-pointer rounded-md border border-slate-200 bg-white p-2.5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${
         dragging ? "opacity-40" : ""
       } ${isDone(t.status) || t.status === "huy" ? "opacity-70" : ""}`}
     >
@@ -185,11 +189,13 @@ function Card({
           {t.parentTitle && <span> · {t.parentTitle}</span>}
         </div>
       )}
-      <div
-        className={`text-sm leading-snug text-slate-800 ${t.status === "huy" ? "line-through" : ""}`}
+      <Link
+        href={`/tasks/${t.key}`}
+        draggable={false}
+        className={`block text-sm leading-snug text-slate-800 after:absolute after:inset-0 after:content-[''] ${t.status === "huy" ? "line-through" : ""}`}
       >
         {t.title}
-      </div>
+      </Link>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {t.sprint && (
           <span className="max-w-full truncate rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">
@@ -225,9 +231,9 @@ function Card({
             </span>
           )}
           <PriorityBadge priority={t.priority} />
-          <Avatar name={t.assigneeName} size={22} />
+          <AssigneePicker taskKey={t.key} assigneeId={t.assigneeId} assigneeName={t.assigneeName} users={users} />
         </span>
       </div>
-    </Link>
+    </div>
   );
 }
