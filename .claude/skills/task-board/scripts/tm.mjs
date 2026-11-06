@@ -25,6 +25,9 @@ const HELP = `Dùng:
   tm update <ID> [--trang_thai=xong] [trường khác…]
   tm records [--du_an=SIA] [--loai=rui_ro|quyet_dinh]   AR (chấp nhận rủi ro) + QD (chờ quyết định)
   tm record <AR-…|QD-…>                  một bản ghi
+  tm record-create --loai=quyet_dinh --cau_hoi="…" [--ai="…"] [--chan_viec=SIA-009] [--chan_phat_hanh=true] [--ghi="…"]
+  tm record-create --loai=rui_ro --tieu_de="…" [--nguon="…"] [--danh_gia="…"] [--xem_lai_khi="…"]
+  tm record-update QD-002 --tra_loi="…"  sửa một phần; "null" = xoá trường
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
   tm log <ID> "một dòng nhật ký"
@@ -38,7 +41,7 @@ Văn bản (mo_ta, rui_ro, bình luận, nhật ký…) là Markdown: **đậm**
 Văn bản dài nhiều dòng: --mo_ta_file=mo-ta.md (mọi trường: --<trường>_file=đường-dẫn), hoặc --mo_ta=- để đọc stdin.
 Giá trị "null" = xoá trường. Hoặc gửi nguyên JSON: --json-body='{"tieu_de":"…"}' / --file=viec.json`;
 
-const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc"];
+const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc", "chan_viec"];
 
 function parseArgs(argv) {
   const pos = [];
@@ -70,6 +73,7 @@ async function bodyFromFlags(flags) {
     const k = fromFile ? rawKey.slice(0, -5) : rawKey;
     const vs = rawVs.map((v) => (fromFile ? readFileSync(v, "utf8").replace(/\n$/, "") : readText(v)));
     if (LIST_FIELDS.includes(k)) body[k] = vs.filter((v) => v !== "null");
+    else if (k === "chan_phat_hanh") body[k] = vs[0] === "null" ? null : vs[0] === "true";
     else if (k === "lien_quan" || k === "can_phe_duyet") body[k] = vs[0] === "null" ? null : JSON.parse(vs[0]);
     else body[k] = vs[0] === "null" ? null : vs[0];
   }
@@ -106,7 +110,7 @@ const print = (x) => console.log(JSON.stringify(x, null, 2));
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [cmd, id, text, text2] = pos;
 // dự án mặc định từ môi trường cho lệnh chạy trong một dự án
-if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records"].includes(cmd)) {
+if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records", "record-create"].includes(cmd)) {
   flags.du_an = [process.env.TM_PROJECT];
 }
 
@@ -130,6 +134,13 @@ switch (cmd) {
   case "record":
     if (!id) throw new Error("Dùng: tm record <AR-… | QD-…>");
     print(await call("GET", `/records/${encodeURIComponent(id)}`));
+    break;
+  case "record-create":
+    print(await call("POST", "/records", await bodyFromFlags(flags)));
+    break;
+  case "record-update":
+    if (!id) throw new Error("Dùng: tm record-update <AR-…|QD-…> --truong=…");
+    print(await call("PATCH", `/records/${encodeURIComponent(id)}`, await bodyFromFlags(flags)));
     break;
   case "list": {
     const qs = new URLSearchParams();

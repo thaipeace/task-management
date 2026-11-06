@@ -44,6 +44,11 @@ async function RecordsContent() {
         <div className="space-y-3">
           {decisions.map((r) => (
             <EditableRecord key={r.key} projectId={pid} kind="decision" recordKey={r.key} data={r.data} canDelete={canDelete}>
+              {r.data.chan_phat_hanh === true && (
+                <span className="mb-1.5 inline-block rounded bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                  Chặn phát hành
+                </span>
+              )}
               <RichText text={s(r.data.cau_hoi)} className="block text-sm leading-relaxed" />
               <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                 <span>
@@ -55,6 +60,12 @@ async function RecordsContent() {
                   <IdLinks ids={Array.isArray(r.data.chan_viec) ? (r.data.chan_viec as string[]) : []} />
                 </span>
               </div>
+              {s(r.data.tra_loi) && (
+                <div className="mt-3 rounded bg-green-50 px-3 py-2 text-sm text-green-900">
+                  <b>Đã quyết:</b> <RichText text={s(r.data.tra_loi)} inline />
+                </div>
+              )}
+              {s(r.data.ghi) && <RichText text={s(r.data.ghi)} className="mt-2 block text-xs text-slate-500" />}
             </EditableRecord>
           ))}
         </div>
@@ -76,6 +87,7 @@ async function RecordsContent() {
                   <b>Xem lại khi:</b> {s(r.data.xem_lai_khi)}
                 </p>
               )}
+              {s(r.data.ghi) && <RichText text={s(r.data.ghi)} className="mt-2 block text-xs text-slate-500" />}
             </EditableRecord>
           ))}
         </div>

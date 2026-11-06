@@ -68,12 +68,18 @@ node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="…" --mang=BE [
 node .claude/skills/task-board/scripts/tm.mjs update SIA-001 --trang_thai=dang-lam [--nguoi_lam=email] [trường khác…]
 node .claude/skills/task-board/scripts/tm.mjs records [--du_an=SIA] [--loai=quyet_dinh]   # AR (chấp nhận rủi ro) + QD (chờ quyết định)
 node .claude/skills/task-board/scripts/tm.mjs record QD-002                         # một bản ghi
+node .claude/skills/task-board/scripts/tm.mjs record-create --loai=quyet_dinh --cau_hoi="…" --ai="anh Hoàng" --chan_viec=SIA-009 [--chan_phat_hanh=true]
+node .claude/skills/task-board/scripts/tm.mjs record-update QD-002 --tra_loi="Chốt: …" [--ghi="…"]   # sửa một phần, "null" = xoá trường
 node .claude/skills/task-board/scripts/tm.mjs log SIA-001 "một dòng nhật ký"
 node .claude/skills/task-board/scripts/tm.mjs comment SIA-001 "bình luận"
 node .claude/skills/task-board/scripts/tm.mjs comment-edit SIA-001 42 "nội dung mới"   # 42 = binh_luan[].id trong get
 ```
 
-Rủi ro đã chấp nhận (AR) và câu hỏi chờ quyết định (QD) đọc bằng `records` / `record`. Các trang web (`/records`, `/board`…) cần đăng nhập bằng trình duyệt, token API không mở được; mọi thứ LLM cần đều có qua CLI / API.
+Rủi ro đã chấp nhận (AR) và câu hỏi chờ quyết định (QD) đọc bằng `records` / `record`, ghi bằng `record-create` / `record-update`.
+- QD: `cau_hoi` (bắt buộc), `ai` (ai quyết), `chan_viec` (id việc bị chặn, lặp cờ), `chan_phat_hanh` (true/false), `ghi`, `tra_loi`.
+- AR: `tieu_de` (bắt buộc), `nguon`, `danh_gia`, `xem_lai_khi`, `ghi`.
+- Trước khi tạo QD, chạy `records --loai=quyet_dinh` để không tạo trùng câu hỏi đã có.
+- Chỉ ghi `tra_loi` khi người có quyền (trường `ai`) đã thực sự trả lời; ghi rõ ai chốt, ngày nào. LLM không tự quyết thay. Các trang web (`/records`, `/board`…) cần đăng nhập bằng trình duyệt, token API không mở được; mọi thứ LLM cần đều có qua CLI / API.
 
 Sửa bình luận: chỉ sửa được bình luận do chính tài khoản của token viết (của người khác → 403). Nội dung mới thay hẳn nội dung cũ, nên muốn thêm ý thì `get` để lấy nội dung cũ rồi gửi lại cả bài. Bình luận được đánh dấu "đã sửa". Muốn ghi tiến triển mới thì thêm bình luận mới hoặc `log`, đừng sửa bình luận cũ.
 

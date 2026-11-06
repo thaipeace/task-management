@@ -78,9 +78,20 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | PATCH | `/tasks/{id}/comments/{comment_id}` | `{ "noi_dung": "…" }` → sửa bình luận (thay hẳn nội dung). Chỉ sửa được bình luận do tài khoản của token viết, không thì 403. `comment_id` là `binh_luan[].id` trong `GET /tasks/{id}` |
 | GET | `/records` | Bản ghi AR / QD, cùng dạng backlog.json: `{ chap_nhan_rui_ro: [{ id, du_an, … }], cho_quyet_dinh: [{ id, du_an, … }] }`. Lọc `?du_an=SIA`, `?loai=rui_ro` hoặc `quyet_dinh` |
 | GET | `/records/{id}` | Một bản ghi (vd. `QD-002`), kèm `loai` |
+| POST | `/records` | Tạo bản ghi, id tự cấp: `{ "du_an": "SIA", "loai": "quyet_dinh", "cau_hoi": "…", … }` → 201 |
+| PATCH | `/records/{id}` | Sửa một phần: chỉ gửi trường cần đổi, `null` = xoá trường. Trường lạ có sẵn (từ backlog.json) được giữ |
 | POST | `/tasks/{id}/logs` | `{ "ghi": "…" }` → thêm một dòng `nhat_ky` |
 
 API không có lệnh xoá việc. Theo quy ước của backlog, việc bỏ thì đổi `trang_thai` thành `huy`.
+
+### Trường của AR / QD
+
+| `loai` | Trường | Ghi chú |
+|---|---|---|
+| `quyet_dinh` (QD) | `cau_hoi` (bắt buộc), `ai`, `chan_viec` (string[] id việc, phải có trong dự án), `chan_phat_hanh` (boolean), `ghi`, `tra_loi` | `tra_loi` = quyết định đã chốt, ghi khi người có quyền đã trả lời |
+| `rui_ro` (AR) | `tieu_de` (bắt buộc), `nguon`, `danh_gia`, `xem_lai_khi`, `ghi` | |
+
+Văn bản là Markdown. Không có lệnh xoá qua API (chỉ admin xoá trên web).
 
 ### Lọc `GET /tasks`
 
