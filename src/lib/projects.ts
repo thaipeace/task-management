@@ -41,7 +41,7 @@ export async function projectStats() {
   const rows = await db.execute<{ project_id: number; tasks: number; open: number; sprints: number }>(sql`
     select p.id as project_id,
       (select count(*)::int from tasks t where t.project_id = p.id) as tasks,
-      (select count(*)::int from tasks t where t.project_id = p.id and t.status not in ('xong', 'huy')) as open,
+      (select count(*)::int from tasks t where t.project_id = p.id and t.status not in ('xong', 'released', 'huy')) as open,
       (select count(*)::int from sprints s where s.project_id = p.id) as sprints
     from projects p`);
   return new Map(rows.rows.map((r) => [r.project_id, r]));

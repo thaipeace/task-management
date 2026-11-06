@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, eq, inArray, isNotNull, like } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, like, or } from "drizzle-orm";
 import { db } from "@/db";
 import { records, sprints, taskLogs, tasks, users } from "@/db/schema";
-import { AREAS, PRIORITIES, STATUSES, labelOf, today } from "./constants";
+import { AREAS, PRIORITIES, isDone, labelOf, today } from "./constants";
 import { stripAreaTag } from "./task-keys";
 
 // Số liệu cho trang Báo cáo. Đếm theo đơn vị công việc: việc con và việc không chia nhỏ.
@@ -10,9 +10,7 @@ import { stripAreaTag } from "./task-keys";
 
 export const OPEN = ["moi", "san-sang", "dang-lam", "cho-duyet"];
 // thứ tự trạng thái trên biểu đồ tiến độ: từ chưa bắt đầu tới xong (huỷ đứng riêng)
-export const PROGRESS = ["moi", "san-sang", "dang-lam", "cho-duyet", "xong"] as const;
-
-const DONE_LABEL = labelOf(STATUSES, "xong");
+export const PROGRESS = ["moi", "san-sang", "dang-lam", "cho-duyet", "xong", "released"] as const;
 
 export type ReportTask = {
   key: string;
@@ -58,12 +56,12 @@ export async function getReport(projectId: number) {
       .from(sprints)
       .where(eq(sprints.projectId, projectId))
       .orderBy(asc(sprints.position), asc(sprints.code)),
-    // ngày xong = lần cuối nhật ký ghi chuyển sang "Xong"
+    // ngày xong = lần cuối nhật ký ghi chuyển sang "Xong…" (gồm nhãn cũ "Xong" và "Xong trên Dev") hoặc "Released"
     db
       .select({ key: taskLogs.taskKey, date: taskLogs.date })
       .from(taskLogs)
       .innerJoin(tasks, eq(tasks.key, taskLogs.taskKey))
-      .where(and(eq(tasks.projectId, projectId), like(taskLogs.text, `%→ ${DONE_LABEL}%`)))
+      .where(and(eq(tasks.projectId, projectId), or(like(taskLogs.text, "%→ Xong%"), like(taskLogs.text, "%→ Released%"))))
       .orderBy(asc(taskLogs.id)),
     db
       .select({ key: records.key, data: records.data })
@@ -94,7 +92,7 @@ export async function getReport(projectId: number) {
       assignee: t.assignee,
       createdOn: t.createdOn,
       // việc import đã xong sẵn không có dòng nhật ký chuyển trạng thái – lấy ngày cập nhật
-      doneOn: t.status === "xong" ? (doneOn.get(t.key) ?? t.updatedOn) : null,
+      doneOn: isDone(t.status) ? (doneOn.get(t.key) ?? t.updatedOn) : null,
       needsApproval: t.approval,
       parentKey: t.parentKey,
     }));
@@ -120,8 +118,8 @@ export async function getReport(projectId: number) {
         items,
         byStatus,
         total,
-        done: byStatus.xong,
-        pct: total ? Math.round((byStatus.xong / total) * 100) : 0,
+        done: byStatus.xong + byStatus.released,
+        pct: total ? Math.round(((byStatus.xong + byStatus.released) / total) * 100) : 0,
         highOpen: items.filter((t) => OPEN.includes(t.status) && ["P0", "P1"].includes(t.priority)).length,
       };
     })
@@ -158,7 +156,8 @@ export async function getReport(projectId: number) {
     tasks: list,
     totals: {
       all: active.length,
-      done: count((t) => t.status === "xong"),
+      done: count((t) => isDone(t.status)),
+      released: count((t) => t.status === "released"),
       inProgress: count((t) => t.status === "dang-lam"),
       review: count((t) => t.status === "cho-duyet"),
       notStarted: count((t) => t.status === "moi" || t.status === "san-sang"),
@@ -196,7 +195,8 @@ const STATUS_WORD: Record<string, string> = {
   "san-sang": "sẵn sàng làm",
   "dang-lam": "đang làm",
   "cho-duyet": "chờ duyệt",
-  xong: "đã xong",
+  xong: "xong trên dev",
+  released: "đã release",
   huy: "đã huỷ",
 };
 
@@ -217,7 +217,7 @@ export function buildSummary(r: Report, projectName: string): SummarySection[] {
   const sections: SummarySection[] = [];
 
   const headline = [
-    `${projectName} hiện có ${T.all} việc: đã xong ${T.done} (${pct(T.done, T.all)}%), đang làm ${T.inProgress}, chờ duyệt ${T.review}, chưa bắt đầu ${T.notStarted}.`,
+    `${projectName} hiện có ${T.all} việc: đã xong ${T.done} (${pct(T.done, T.all)}%${T.released ? `, trong đó ${T.released} đã release` : ""}), đang làm ${T.inProgress}, chờ duyệt ${T.review}, chưa bắt đầu ${T.notStarted}.`,
     T.highOpen
       ? `Còn ${T.highOpen} việc ưu tiên cao chưa xong${T.p0Open ? `, trong đó ${T.p0Open} việc chặn phát hành (P0)` : ""}.`
       : "Không còn việc ưu tiên cao nào tồn đọng.",

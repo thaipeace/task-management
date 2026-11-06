@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { FilterBar } from "@/components/filter-bar";
 import { AreaBadge, Avatar, Loading, PageHeader, PriorityBadge, StatusBadge, SubtaskProgress, TypeIcon } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { isDone } from "@/lib/constants";
 import { getCurrentProject } from "@/lib/projects";
 import { listActiveUsers, listSprints, listTasks, readFilters, type TaskRow } from "@/lib/queries";
 
@@ -93,7 +94,7 @@ function SprintGroup({
 }) {
   // việc cha đã chia nhỏ chỉ là nhóm – tiến độ đếm theo việc con và việc không chia nhỏ (như trang Báo cáo)
   const units = items.filter((t) => !t.subTotal && t.status !== "huy");
-  const done = units.filter((t) => t.status === "xong").length;
+  const done = units.filter((t) => isDone(t.status)).length;
   const pct = units.length ? Math.round((done / units.length) * 100) : 0;
   return (
     <section className="card overflow-hidden">

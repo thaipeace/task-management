@@ -36,11 +36,19 @@ export const STATUSES = [
   },
   {
     value: "xong",
-    label: "Xong",
+    label: "Xong trên Dev",
     color: "bg-green-100 text-green-800",
     column: "bg-green-100/70",
     accent: "border-t-green-600",
     count: "bg-green-200 text-green-900",
+  },
+  {
+    value: "released",
+    label: "Released",
+    color: "bg-emerald-600 text-white",
+    column: "bg-emerald-200/60",
+    accent: "border-t-emerald-700",
+    count: "bg-emerald-600 text-white",
   },
   {
     value: "huy",
@@ -51,6 +59,10 @@ export const STATUSES = [
     count: "bg-zinc-300 text-zinc-700",
   },
 ] as const;
+
+// Đã làm xong: xong trên dev hoặc đã release
+export const DONE_STATUSES = ["xong", "released"];
+export const isDone = (status: string) => DONE_STATUSES.includes(status);
 
 export const PRIORITIES = [
   { value: "P0", label: "P0 · Chặn phát hành", color: "bg-red-600 text-white" },

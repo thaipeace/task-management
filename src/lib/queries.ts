@@ -91,7 +91,7 @@ export async function listTasks(projectId: number, f: TaskFilters, meId: number)
       parentTitle: sql<string | null>`(select p.title from tasks p where p.key = ${tasks.parentKey})`,
       subOrder: tasks.subOrder,
       subTotal: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key})`,
-      subDone: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key} and c.status = 'xong')`,
+      subDone: sql<number>`(select count(*)::int from tasks c where c.parent_key = ${tasks.key} and c.status in ('xong', 'released'))`,
     })
     .from(tasks)
     .leftJoin(users, eq(users.id, tasks.assigneeId))

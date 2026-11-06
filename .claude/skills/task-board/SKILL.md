@@ -75,7 +75,7 @@ Giá trị hợp lệ:
 | Trường | Giá trị |
 | --- | --- |
 | `mang` | `BE` \| `FE` \| `OPS` \| `DOC` |
-| `trang_thai` | `moi` → `san-sang` → `dang-lam` → `cho-duyet` → `xong`, hoặc `huy` |
+| `trang_thai` | `moi` → `san-sang` → `dang-lam` → `cho-duyet` → `xong` (xong trên dev) → `released` (đã lên production), hoặc `huy` |
 | `uu_tien` | `P0` (chặn phát hành) \| `P1` (làm ngay) \| `P2` (trong đợt) \| `P3` (khi rảnh) |
 | `loai` | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu` |
 | `uoc_luong` | `S` (≤ nửa ngày) \| `M` (1–2 ngày) \| `L` (≥ 3 ngày) |
@@ -108,8 +108,8 @@ Gán cho mỗi bài test lỗi một `khoa_ngoai` cố định, ví dụ `test:<
 
 1. Với mỗi ca lỗi: `create` với `khoa_ngoai`, `tieu_de`, `mang`, `--loai=loi`, `mo_ta` (thông báo lỗi chính, ngắn gọn), `kiem_thu` (lệnh chạy lại).
 2. Lấy `id` từ kết quả, rồi ghi `log` một dòng tóm tắt lần lỗi này.
-3. Nếu việc đang ở `xong` / `huy` mà test lại lỗi: `update <ID> --trang_thai=moi`, rồi `log` lý do mở lại.
-4. Ca từng lỗi nay đã qua: tìm bằng `list --khoa_ngoai=…`, rồi `update <ID> --trang_thai=cho-duyet` và `log "Test đã qua"`. Không tự đặt `xong`; người duyệt sẽ làm việc đó.
+3. Nếu việc đang ở `xong` / `released` / `huy` mà test lại lỗi: `update <ID> --trang_thai=moi`, rồi `log` lý do mở lại.
+4. Ca từng lỗi nay đã qua: tìm bằng `list --khoa_ngoai=…`, rồi `update <ID> --trang_thai=cho-duyet` và `log "Test đã qua"`. Không tự đặt `xong` hay `released`; người duyệt sẽ làm việc đó.
 
 Cuối cùng báo người dùng danh sách id đã tạo mới, đã ghi thêm, đã mở lại, đã chuyển chờ duyệt.
 

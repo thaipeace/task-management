@@ -8,10 +8,11 @@ import { useEffect, useRef, useState } from "react";
 
 export const STATUS_RAMP: Record<string, string> = {
   moi: "#86b6ef",
-  "san-sang": "#5598e7",
-  "dang-lam": "#2a78d6",
-  "cho-duyet": "#1c5cab",
-  xong: "#0d366b",
+  "san-sang": "#5f9de8",
+  "dang-lam": "#3a82dd",
+  "cho-duyet": "#2566bf",
+  xong: "#184c90",
+  released: "#0b2f5e",
 };
 const SERIES = ["#2a78d6", "#eb6834"];
 const HEAT = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];

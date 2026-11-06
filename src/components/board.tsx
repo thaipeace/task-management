@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { moveTask } from "@/app/actions/tasks";
-import { STATUSES } from "@/lib/constants";
+import { STATUSES, isDone } from "@/lib/constants";
 import type { TaskRow } from "@/lib/queries";
 import { AreaBadge, Avatar, PriorityBadge, SubtaskProgress, TypeIcon } from "./ui";
 
@@ -174,7 +174,7 @@ function Card({
       onDragEnd={onDragEnd}
       className={`block rounded-md border border-slate-200 bg-white p-2.5 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 ${
         dragging ? "opacity-40" : ""
-      } ${t.status === "xong" || t.status === "huy" ? "opacity-70" : ""}`}
+      } ${isDone(t.status) || t.status === "huy" ? "opacity-70" : ""}`}
     >
       {t.parentKey && (
         <div

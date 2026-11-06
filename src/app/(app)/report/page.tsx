@@ -49,7 +49,7 @@ async function ReportContent() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Stat label="Tổng việc" value={T.all} note={T.cancelled ? `+${T.cancelled} đã huỷ` : undefined} />
-            <Stat label="Đã xong" value={`${pct(T.done, T.all)}%`} note={`${T.done}/${T.all} việc`} />
+            <Stat label="Đã xong" value={`${pct(T.done, T.all)}%`} note={`${T.done}/${T.all} việc${T.released ? ` · ${T.released} đã release` : ""}`} />
             <Stat label="Đang làm" value={T.inProgress} note={T.review ? `+${T.review} chờ duyệt` : "chưa có việc chờ duyệt"} />
             <Stat
               label="Ưu tiên cao chưa xong"

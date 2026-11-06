@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { addSubtask, moveSubtask, setStatus } from "@/app/actions/tasks";
-import { STATUSES } from "@/lib/constants";
+import { STATUSES, isDone } from "@/lib/constants";
 import { Avatar, PriorityBadge } from "./ui";
 import { useFormAction } from "./use-form-action";
 
@@ -30,7 +30,7 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
   const [state, onSubmit, pending] = useFormAction(addSubtask.bind(null, parentKey), undefined);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const done = items.filter((s) => s.status === "xong").length;
+  const done = items.filter((s) => isDone(s.status)).length;
 
   function indexFromPointer(e: React.DragEvent<HTMLElement>) {
     const rows = [...e.currentTarget.querySelectorAll<HTMLElement>("[data-sub]")].filter(
@@ -130,7 +130,7 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
                 </Link>
                 <span
                   className={`min-w-0 flex-1 truncate ${
-                    s.status === "xong" ? "text-slate-400 line-through" : s.status === "huy" ? "text-slate-400" : ""
+                    isDone(s.status) ? "text-slate-400 line-through" : s.status === "huy" ? "text-slate-400" : ""
                   }`}
                 >
                   {s.title}
