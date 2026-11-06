@@ -78,7 +78,7 @@ Giá trị hợp lệ:
 | Trường | Giá trị |
 | --- | --- |
 | `mang` | `BE` \| `FE` \| `OPS` \| `DOC` |
-| `trang_thai` | `moi` → `san-sang` → `dang-lam` → `cho-duyet` → `xong` (xong trên dev) → `released` (đã lên production), hoặc `huy` |
+| `trang_thai` | `moi` → `san-sang` → `dang-lam` → `cho-duyet` → `dang-kiem-tra` (đang kiểm tra) → `xong` (xong trên dev) → `released` (đã lên production), hoặc `huy` |
 | `uu_tien` | `P0` (chặn phát hành) \| `P1` (làm ngay) \| `P2` (trong đợt) \| `P3` (khi rảnh) |
 | `loai` | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu` |
 | `uoc_luong` | `S` (≤ nửa ngày) \| `M` (1–2 ngày) \| `L` (≥ 3 ngày) |

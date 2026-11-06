@@ -7,7 +7,7 @@ Next.js 16 (App Router, Server Actions) · Drizzle ORM · Postgres (Neon) · Ver
 
 - **Dự án**: mỗi dự án là một backlog riêng (đợt, việc, AR/QD, import / export riêng); đổi dự án ở góc trên thanh bên. Quản trị viên thêm dự án ở **Quản trị → Dự án**. Người dùng dùng chung mọi dự án.
 - **Chuẩn id**: `<MÃ DỰ ÁN>-<số>` (`SIA-019`); mảng đứng đầu tiêu đề (`[FE] …`, server tự thêm / sửa theo mảng). Id chuẩn cũ (`BE-010`, `FE-010`) đã đổi bằng `scripts/migrate-task-keys.mts` (trùng số → việc sửa sau thêm `a`, `b`…: `SIA-010a`); id cũ vẫn mở được và vẫn gọi API được (bảng `task_aliases`).
-- **Bảng** kéo thả theo trạng thái (`moi → san-sang → dang-lam → cho-duyet → xong (trên dev) → released`, cột `huy` ẩn/hiện). Mỗi lần đổi trạng thái hoặc người làm tự thêm một dòng `nhat_ky`.
+- **Bảng** kéo thả theo trạng thái (`moi → san-sang → dang-lam → cho-duyet → dang-kiem-tra → xong (trên dev) → released`, cột `huy` ẩn/hiện). Mỗi lần đổi trạng thái hoặc người làm tự thêm một dòng `nhat_ky`.
 - **Backlog** nhóm theo đợt (`dot`), sắp theo ưu tiên; lọc theo đợt / mảng / ưu tiên / loại / người làm, tìm theo id, tiêu đề, mô tả.
 - **Văn bản Markdown** ở mọi ô (mô tả, rủi ro, bình luận, nhật ký, AR/QD): ô soạn có thanh công cụ, phím tắt ⌘/Ctrl B·I·K·E, Enter nối danh sách, chọn chữ rồi dán URL thành link, tab Xem trước. Hiển thị an toàn (không chạy HTML), id việc tự thành liên kết.
 - **Chi tiết việc**: đủ mọi trường của `viec` (bằng chứng, việc cần làm, tiêu chí xong, kiểm thử, rủi ro, cần phê duyệt, phụ thuộc, liên quan…), bình luận, nhật ký. Id dạng `BE-001`, `QD-002` trong văn bản tự thành liên kết.

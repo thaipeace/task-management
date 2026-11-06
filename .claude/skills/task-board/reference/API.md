@@ -107,7 +107,7 @@ Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
 | `loai` | enum | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu`. Mặc định `loi` |
 | `dot` | string \| null | Mã đợt phải có sẵn trong dự án của việc (xem `/sprints?du_an=…`) |
 | `uu_tien` | enum | `P0` \| `P1` \| `P2` \| `P3`. Mặc định `P2` |
-| `trang_thai` | enum | `moi` \| `san-sang` \| `dang-lam` \| `cho-duyet` \| `xong` (xong trên dev) \| `released` (đã lên production) \| `huy`. Mặc định `moi` |
+| `trang_thai` | enum | `moi` \| `san-sang` \| `dang-lam` \| `cho-duyet` \| `dang-kiem-tra` (đang kiểm tra) \| `xong` (xong trên dev) \| `released` (đã lên production) \| `huy`. Mặc định `moi` |
 | `uoc_luong` | enum \| null | `S` \| `M` \| `L` |
 | `mo_ta`, `rui_ro`, `nguon` | string | |
 | `bang_chung`, `viec_can_lam`, `tieu_chi_xong`, `kiem_thu`, `phu_thuoc` | string[] | |

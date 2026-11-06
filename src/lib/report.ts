@@ -8,9 +8,9 @@ import { stripAreaTag } from "./task-keys";
 // Số liệu cho trang Báo cáo. Đếm theo đơn vị công việc: việc con và việc không chia nhỏ.
 // Việc cha đã chia thành việc con chỉ là nhóm – đếm cả cha lẫn con sẽ trùng.
 
-export const OPEN = ["moi", "san-sang", "dang-lam", "cho-duyet"];
+export const OPEN = ["moi", "san-sang", "dang-lam", "cho-duyet", "dang-kiem-tra"];
 // thứ tự trạng thái trên biểu đồ tiến độ: từ chưa bắt đầu tới xong (huỷ đứng riêng)
-export const PROGRESS = ["moi", "san-sang", "dang-lam", "cho-duyet", "xong", "released"] as const;
+export const PROGRESS = ["moi", "san-sang", "dang-lam", "cho-duyet", "dang-kiem-tra", "xong", "released"] as const;
 
 export type ReportTask = {
   key: string;
@@ -160,6 +160,7 @@ export async function getReport(projectId: number) {
       released: count((t) => t.status === "released"),
       inProgress: count((t) => t.status === "dang-lam"),
       review: count((t) => t.status === "cho-duyet"),
+      testing: count((t) => t.status === "dang-kiem-tra"),
       notStarted: count((t) => t.status === "moi" || t.status === "san-sang"),
       cancelled: count((t) => t.status === "huy"),
       highOpen: count((t) => OPEN.includes(t.status) && ["P0", "P1"].includes(t.priority)),
@@ -169,7 +170,7 @@ export async function getReport(projectId: number) {
     releases,
     timeline,
     matrix,
-    inProgress: list.filter((t) => t.status === "dang-lam" || t.status === "cho-duyet"),
+    inProgress: list.filter((t) => ["dang-lam", "cho-duyet", "dang-kiem-tra"].includes(t.status)),
     recentlyDone: list
       .filter((t) => t.doneOn && t.doneOn >= weekAgo)
       .sort((a, b) => b.doneOn!.localeCompare(a.doneOn!)),
@@ -195,6 +196,7 @@ const STATUS_WORD: Record<string, string> = {
   "san-sang": "sẵn sàng làm",
   "dang-lam": "đang làm",
   "cho-duyet": "chờ duyệt",
+  "dang-kiem-tra": "đang kiểm tra",
   xong: "xong trên dev",
   released: "đã release",
   huy: "đã huỷ",
@@ -217,7 +219,7 @@ export function buildSummary(r: Report, projectName: string): SummarySection[] {
   const sections: SummarySection[] = [];
 
   const headline = [
-    `${projectName} hiện có ${T.all} việc: đã xong ${T.done} (${pct(T.done, T.all)}%${T.released ? `, trong đó ${T.released} đã release` : ""}), đang làm ${T.inProgress}, chờ duyệt ${T.review}, chưa bắt đầu ${T.notStarted}.`,
+    `${projectName} hiện có ${T.all} việc: đã xong ${T.done} (${pct(T.done, T.all)}%${T.released ? `, trong đó ${T.released} đã release` : ""}), đang làm ${T.inProgress}, chờ duyệt ${T.review}, đang kiểm tra ${T.testing}, chưa bắt đầu ${T.notStarted}.`,
     T.highOpen
       ? `Còn ${T.highOpen} việc ưu tiên cao chưa xong${T.p0Open ? `, trong đó ${T.p0Open} việc chặn phát hành (P0)` : ""}.`
       : "Không còn việc ưu tiên cao nào tồn đọng.",

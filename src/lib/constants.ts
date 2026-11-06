@@ -35,6 +35,14 @@ export const STATUSES = [
     count: "bg-amber-200 text-amber-900",
   },
   {
+    value: "dang-kiem-tra",
+    label: "Đang kiểm tra",
+    color: "bg-violet-100 text-violet-800",
+    column: "bg-violet-100/70",
+    accent: "border-t-violet-500",
+    count: "bg-violet-200 text-violet-900",
+  },
+  {
     value: "xong",
     label: "Xong trên Dev",
     color: "bg-green-100 text-green-800",
