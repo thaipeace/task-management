@@ -18,6 +18,7 @@ export type ReportTask = {
   area: string;
   areaLabel: string; // "Máy chủ Worker" – dễ đọc với người không làm kỹ thuật
   priority: string;
+  estimate: string | null;
   status: string;
   sprint: string | null;
   assignee: string | null;
@@ -28,13 +29,14 @@ export type ReportTask = {
 };
 
 export async function getReport(projectId: number) {
-  const [taskRows, subRows, sprintRows, doneLogs, decisions, riskCount] = await Promise.all([
+  const [taskRows, subRows, sprintRows, doneLogs, decisions, riskCount, team] = await Promise.all([
     db
       .select({
         key: tasks.key,
         title: tasks.title,
         area: tasks.area,
         priority: tasks.priority,
+        estimate: tasks.estimate,
         status: tasks.status,
         sprint: tasks.sprint,
         createdOn: tasks.createdOn,
@@ -73,6 +75,7 @@ export async function getReport(projectId: number) {
       .from(records)
       .where(and(eq(records.projectId, projectId), inArray(records.kind, ["risk"])))
       .then((r) => r.length),
+    db.select({ name: users.name }).from(users).where(eq(users.active, true)).orderBy(asc(users.name)),
   ]);
 
   const doneOn = new Map<string, string>();
@@ -87,6 +90,7 @@ export async function getReport(projectId: number) {
       area: t.area,
       areaLabel: (labelOf(AREAS, t.area).split("·")[1] ?? t.area).trim(),
       priority: t.priority,
+      estimate: t.estimate,
       status: t.status,
       sprint: t.sprint,
       assignee: t.assignee,
@@ -151,6 +155,12 @@ export async function getReport(projectId: number) {
   })).filter((r) => r.cells.some((c) => c.n > 0));
 
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+  const decisionList = decisions.map((d) => ({
+    key: d.key,
+    question: String(d.data.cau_hoi ?? ""),
+    who: String(d.data.ai ?? ""),
+    blocks: Array.isArray(d.data.chan_viec) ? (d.data.chan_viec as string[]) : [],
+  }));
 
   return {
     tasks: list,
@@ -178,12 +188,106 @@ export async function getReport(projectId: number) {
       .filter((t) => t.priority === "P0" || t.priority === "P1")
       .sort((a, b) => a.priority.localeCompare(b.priority)),
     approvals: openTasks.filter((t) => t.needsApproval),
-    decisions: decisions.map((d) => ({
-      key: d.key,
-      question: String(d.data.cau_hoi ?? ""),
-      who: String(d.data.ai ?? ""),
-      blocks: Array.isArray(d.data.chan_viec) ? (d.data.chan_viec as string[]) : [],
-    })),
+    decisions: decisionList,
+    workload: workload(list, team.map((u) => u.name), decisionList, openTasks),
+  };
+}
+
+// ---- Khối lượng theo người: cân theo độ nặng và trách nhiệm, không chỉ đếm việc ----
+
+// điểm nặng = cỡ việc × hệ số ưu tiên; việc chưa ước lượng tính như M
+export const EFFORT: Record<string, number> = { S: 1, M: 2, L: 4 };
+export const PRIORITY_WEIGHT: Record<string, number> = { P0: 2, P1: 1.5, P2: 1, P3: 0.5 };
+// chờ duyệt / đang kiểm tra: phần làm chủ yếu đã xong, chỉ còn sửa theo góp ý – tính nửa điểm
+const WAITING = ["cho-duyet", "dang-kiem-tra"];
+export const WAITING_FACTOR = 0.5;
+
+const points = (t: ReportTask) =>
+  (EFFORT[t.estimate ?? ""] ?? EFFORT.M) * (PRIORITY_WEIGHT[t.priority] ?? 1) * (WAITING.includes(t.status) ? WAITING_FACTOR : 1);
+
+const fold = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase();
+
+// họ phổ biến – không đủ để nhận ra một người ("Nguyễn Huy Hoàng" không phải "Thai Nguyen")
+const SURNAMES = new Set(
+  "nguyen tran le pham hoang huynh phan vu vo dang bui do ho ngo duong ly dinh trinh mai cao lam truong".split(" "),
+);
+
+// "ai" trong QD / phê duyệt là chữ tự do ("Thái (kỹ thuật) + báo anh Hoàng") – khớp cả tên,
+// hoặc một chữ trong tên không phải họ (tên viết kiểu "Thai Nguyen" hay "Nguyễn Văn Thái" đều nhận ra "Thái")
+function namedIn(text: string, name: string) {
+  const words = (x: string) => fold(x).split(/[^a-z0-9]+/).filter(Boolean);
+  const t = ` ${words(text).join(" ")} `;
+  const n = words(name);
+  return t.includes(` ${n.join(" ")} `) || n.some((w) => w.length > 1 && !SURNAMES.has(w) && t.includes(` ${w} `));
+}
+
+const DAY = 86_400_000;
+
+function workload(
+  list: ReportTask[],
+  team: string[],
+  decisions: { key: string; who: string }[],
+  openTasks: ReportTask[],
+) {
+  const since = new Date(Date.now() - 14 * DAY).toISOString().slice(0, 10);
+  const names = [...new Set([...team, ...list.flatMap((t) => (t.assignee ? [t.assignee] : []))])];
+  const round = (n: number) => Math.round(n * 10) / 10;
+
+  const people = names
+    .map((name) => {
+      const mine = list.filter((t) => t.assignee === name);
+      const open = mine.filter((t) => OPEN.includes(t.status));
+      const recent = mine.filter((t) => t.doneOn && t.doneOn >= since);
+      return {
+        name,
+        openCount: open.length,
+        load: round(open.reduce((a, t) => a + points(t), 0)),
+        urgent: open.filter((t) => t.priority === "P0" || t.priority === "P1").length,
+        p0: open.filter((t) => t.priority === "P0").length,
+        doing: open.filter((t) => t.status === "dang-lam").length,
+        waiting: open.filter((t) => WAITING.includes(t.status)).length,
+        unestimated: open.filter((t) => !t.estimate).length,
+        doneRecent: recent.length,
+        doneRecentPoints: round(recent.reduce((a, t) => a + (EFFORT[t.estimate ?? ""] ?? EFFORT.M) * (PRIORITY_WEIGHT[t.priority] ?? 1), 0)),
+        decisions: decisions.filter((d) => d.who && namedIn(d.who, name)).map((d) => d.key),
+        approvals: openTasks.filter((t) => t.needsApproval?.ai && namedIn(t.needsApproval.ai, name)).map((t) => t.key),
+        hasWork: mine.some((t) => t.status !== "huy"),
+      };
+    })
+    // người chưa từng nhận việc và không giữ quyết định nào thì không đưa vào bảng
+    .filter((p) => p.hasWork || p.decisions.length || p.approvals.length);
+
+  // mức trung bình chia đều cho những người đang nhận việc trong dự án
+  const workers = people.filter((p) => p.hasWork);
+  const avg = workers.length ? workers.reduce((a, p) => a + p.load, 0) / workers.length : 0;
+  const rows = people
+    .map(({ hasWork, ...p }) => {
+      const flags: string[] = [];
+      if (avg > 0 && p.load > avg * 1.5) flags.push(`Quá tải – gấp ${round(p.load / avg)} lần mức trung bình`);
+      else if (hasWork && avg > 0 && p.load < avg * 0.5) flags.push("Nhẹ việc – có thể nhận thêm");
+      if (p.p0 >= 2) flags.push(`Giữ ${p.p0} việc chặn phát hành`);
+      if (p.doing >= 3) flags.push(`Làm song song ${p.doing} việc`);
+      if (p.decisions.length + p.approvals.length >= 3) {
+        flags.push(`Đang là người quyết ${p.decisions.length + p.approvals.length} chỗ – dễ thành nút thắt`);
+      }
+      return { ...p, share: avg ? round(p.load / avg) : 0, flags };
+    })
+    .sort((a, b) => b.load - a.load || b.urgent - a.urgent || a.name.localeCompare(b.name));
+
+  const unassigned = openTasks.filter((t) => !t.assignee);
+  return {
+    rows,
+    avg: round(avg),
+    unassigned: {
+      count: unassigned.length,
+      load: round(unassigned.reduce((a, t) => a + points(t), 0)),
+      urgent: unassigned.filter((t) => t.priority === "P0" || t.priority === "P1").length,
+    },
   };
 }
 
@@ -203,6 +307,8 @@ const STATUS_WORD: Record<string, string> = {
 };
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+// số kiểu Việt: 1,5
+export const fmt = (n: number) => String(n).replace(".", ",");
 
 function line(t: ReportTask, withStatus = true) {
   const who = t.assignee ? `, ${t.assignee}` : "";
@@ -253,6 +359,33 @@ export function buildSummary(r: Report, projectName: string): SummarySection[] {
 
   if (r.inProgress.length) {
     sections.push({ title: "Đang làm và chờ duyệt", lines: r.inProgress.map((t) => line(t)) });
+  }
+  const W = r.workload;
+  if (W.rows.length) {
+    const top = W.rows[0];
+    const over = W.rows.filter((p) => p.flags.some((f) => f.startsWith("Quá tải")));
+    sections.push({
+      title: "Khối lượng theo người",
+      intro: `Cân theo độ nặng chứ không chỉ đếm việc: điểm = cỡ việc (S 1, M 2, L 4) × ưu tiên (P0 ×2, P1 ×1,5, P2 ×1, P3 ×0,5); việc đang chờ duyệt / kiểm tra tính nửa điểm. Trung bình mỗi người đang giữ ${fmt(W.avg)} điểm.${
+        over.length ? ` Cần san bớt việc của ${over.map((p) => p.name).join(", ")}.` : top.load ? " Việc đang chia khá đều." : ""
+      }`,
+      lines: [
+        ...W.rows.map((p) => {
+          const parts = [
+            `${p.name}: ${p.openCount} việc chưa xong, ${fmt(p.load)} điểm${W.avg ? ` (${fmt(p.share)}× trung bình)` : ""}`,
+            p.urgent ? `${p.urgent} việc gấp` : "",
+            p.waiting ? `${p.waiting} việc đang chờ duyệt / kiểm tra` : "",
+            p.doneRecent ? `xong ${p.doneRecent} việc (${fmt(p.doneRecentPoints)} điểm) trong 14 ngày` : "chưa xong việc nào trong 14 ngày",
+            p.decisions.length ? `là người quyết ${p.decisions.join(", ")}` : "",
+            p.approvals.length ? `cần phê duyệt ${p.approvals.join(", ")}` : "",
+          ].filter(Boolean);
+          return parts.join(", ") + "." + (p.flags.length ? ` ⚠ ${p.flags.join("; ")}.` : "");
+        }),
+        ...(W.unassigned.count
+          ? [`Chưa giao cho ai: ${W.unassigned.count} việc, ${fmt(W.unassigned.load)} điểm${W.unassigned.urgent ? `, trong đó ${W.unassigned.urgent} việc gấp` : ""}.`]
+          : []),
+      ],
+    });
   }
   if (r.urgent.length) {
     sections.push({
