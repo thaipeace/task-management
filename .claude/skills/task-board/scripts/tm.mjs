@@ -23,6 +23,8 @@ const HELP = `Dùng:
   tm get <ID>                            chi tiết, kèm nhật ký + bình luận
   tm create --tieu_de="…" --mang=BE [--du_an=SIA] [trường khác…]
   tm update <ID> [--trang_thai=xong] [trường khác…]
+  tm records [--du_an=SIA] [--loai=rui_ro|quyet_dinh]   AR (chấp nhận rủi ro) + QD (chờ quyết định)
+  tm record <AR-…|QD-…>                  một bản ghi
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
   tm log <ID> "một dòng nhật ký"
@@ -104,7 +106,7 @@ const print = (x) => console.log(JSON.stringify(x, null, 2));
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [cmd, id, text, text2] = pos;
 // dự án mặc định từ môi trường cho lệnh chạy trong một dự án
-if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints"].includes(cmd)) {
+if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records"].includes(cmd)) {
   flags.du_an = [process.env.TM_PROJECT];
 }
 
@@ -117,6 +119,17 @@ switch (cmd) {
     break;
   case "sprints":
     print(await call("GET", "/sprints" + (flags.du_an ? `?du_an=${encodeURIComponent(flags.du_an[0])}` : "")));
+    break;
+  case "records": {
+    const qs = new URLSearchParams();
+    if (flags.du_an) qs.set("du_an", flags.du_an[0]);
+    if (flags.loai) qs.set("loai", flags.loai[0]);
+    print(await call("GET", "/records" + (qs.size ? `?${qs}` : "")));
+    break;
+  }
+  case "record":
+    if (!id) throw new Error("Dùng: tm record <AR-… | QD-…>");
+    print(await call("GET", `/records/${encodeURIComponent(id)}`));
     break;
   case "list": {
     const qs = new URLSearchParams();

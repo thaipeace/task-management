@@ -66,10 +66,14 @@ node .claude/skills/task-board/scripts/tm.mjs get SIA-001                       
 node .claude/skills/task-board/scripts/tm.mjs create --tieu_de="…" --mang=BE [--loai=loi] [--uu_tien=P1] [--dot=D1-…] [--mo_ta="…"] \
            [--kiem_thu="…" --kiem_thu="…"] [--khoa_ngoai="…"]
 node .claude/skills/task-board/scripts/tm.mjs update SIA-001 --trang_thai=dang-lam [--nguoi_lam=email] [trường khác…]
+node .claude/skills/task-board/scripts/tm.mjs records [--du_an=SIA] [--loai=quyet_dinh]   # AR (chấp nhận rủi ro) + QD (chờ quyết định)
+node .claude/skills/task-board/scripts/tm.mjs record QD-002                         # một bản ghi
 node .claude/skills/task-board/scripts/tm.mjs log SIA-001 "một dòng nhật ký"
 node .claude/skills/task-board/scripts/tm.mjs comment SIA-001 "bình luận"
 node .claude/skills/task-board/scripts/tm.mjs comment-edit SIA-001 42 "nội dung mới"   # 42 = binh_luan[].id trong get
 ```
+
+Rủi ro đã chấp nhận (AR) và câu hỏi chờ quyết định (QD) đọc bằng `records` / `record`. Các trang web (`/records`, `/board`…) cần đăng nhập bằng trình duyệt, token API không mở được; mọi thứ LLM cần đều có qua CLI / API.
 
 Sửa bình luận: chỉ sửa được bình luận do chính tài khoản của token viết (của người khác → 403). Nội dung mới thay hẳn nội dung cũ, nên muốn thêm ý thì `get` để lấy nội dung cũ rồi gửi lại cả bài. Bình luận được đánh dấu "đã sửa". Muốn ghi tiến triển mới thì thêm bình luận mới hoặc `log`, đừng sửa bình luận cũ.
 
