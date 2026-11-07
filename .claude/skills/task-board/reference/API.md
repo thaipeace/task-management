@@ -80,6 +80,9 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | GET | `/records/{id}` | Một bản ghi (vd. `QD-002`), kèm `loai` |
 | POST | `/records` | Tạo bản ghi, id tự cấp: `{ "du_an": "SIA", "loai": "quyet_dinh", "cau_hoi": "…", … }` → 201 |
 | PATCH | `/records/{id}` | Sửa một phần: chỉ gửi trường cần đổi, `null` = xoá trường. Trường lạ có sẵn (từ backlog.json) được giữ |
+| GET | `/goals` | Mục tiêu kèm tiến độ tính đến hôm nay (`?du_an=SIA`). Chỉ đọc; mục tiêu đặt trên web |
+| GET | `/weekly` | Số liệu báo cáo tuần so với mục tiêu, kèm `ban_nhap` (Markdown) và `bao_cao` (bản đã viết hoặc `null`). `?du_an=SIA&tuan=YYYY-MM-DD` (ngày bất kỳ trong tuần; tuần bắt đầu thứ Hai; không gửi thì là tuần này). `cach_tinh` giải thích công thức |
+| PUT | `/weekly` | `{ "du_an": "SIA", "tuan"?: "YYYY-MM-DD", "noi_dung": "Markdown" }` → ghi hoặc ghi đè báo cáo tuần; lưu kèm số liệu lúc ghi |
 | POST | `/tasks/{id}/logs` | `{ "ghi": "…" }` → thêm một dòng `nhat_ky` |
 
 API không có lệnh xoá việc. Theo quy ước của backlog, việc bỏ thì đổi `trang_thai` thành `huy`.

@@ -5,7 +5,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { comments, projects, records, sprints, taskLogs, tasks } from "@/db/schema";
+import { comments, goals, projects, records, sprints, taskLogs, tasks } from "@/db/schema";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { nextKey } from "@/lib/backlog";
 import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, STATUSES, TYPES, today } from "@/lib/constants";
@@ -354,6 +354,10 @@ export async function deleteSprint(projectId: number, code: string) {
       .update(tasks)
       .set({ sprint: null })
       .where(and(eq(tasks.projectId, projectId), eq(tasks.sprint, code)));
+    await tx
+      .update(goals)
+      .set({ sprint: null })
+      .where(and(eq(goals.projectId, projectId), eq(goals.sprint, code)));
     await tx.delete(sprints).where(and(eq(sprints.projectId, projectId), eq(sprints.code, code)));
   });
   refresh();

@@ -28,6 +28,9 @@ const HELP = `Dùng:
   tm record-create --loai=quyet_dinh --cau_hoi="…" [--ai="…"] [--chan_viec=SIA-009] [--chan_phat_hanh=true] [--ghi="…"]
   tm record-create --loai=rui_ro --tieu_de="…" [--nguon="…"] [--danh_gia="…"] [--xem_lai_khi="…"]
   tm record-update QD-002 --tra_loi="…"  sửa một phần; "null" = xoá trường
+  tm goals [--du_an=SIA]                 mục tiêu kèm tiến độ, đánh giá nhịp
+  tm weekly [--du_an=SIA] [--tuan=2026-11-07]   số liệu báo cáo tuần so với mục tiêu + bản nháp (+ bản đã viết)
+  tm weekly-save [--du_an=SIA] [--tuan=…] "-"   ghi báo cáo tuần (Markdown, "-" = stdin; hoặc --noi_dung_file=bc.md)
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
   tm log <ID> "một dòng nhật ký"
@@ -110,7 +113,7 @@ const print = (x) => console.log(JSON.stringify(x, null, 2));
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [cmd, id, text, text2] = pos;
 // dự án mặc định từ môi trường cho lệnh chạy trong một dự án
-if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records", "record-create"].includes(cmd)) {
+if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records", "record-create", "goals", "weekly", "weekly-save"].includes(cmd)) {
   flags.du_an = [process.env.TM_PROJECT];
 }
 
@@ -142,6 +145,23 @@ switch (cmd) {
     if (!id) throw new Error("Dùng: tm record-update <AR-…|QD-…> --truong=…");
     print(await call("PATCH", `/records/${encodeURIComponent(id)}`, await bodyFromFlags(flags)));
     break;
+  case "goals":
+    print(await call("GET", "/goals" + (flags.du_an ? `?du_an=${encodeURIComponent(flags.du_an[0])}` : "")));
+    break;
+  case "weekly": {
+    const qs = new URLSearchParams();
+    if (flags.du_an) qs.set("du_an", flags.du_an[0]);
+    if (flags.tuan) qs.set("tuan", flags.tuan[0]);
+    print(await call("GET", "/weekly" + (qs.size ? `?${qs}` : "")));
+    break;
+  }
+  case "weekly-save": {
+    const body = await bodyFromFlags(flags);
+    if (id) body.noi_dung = readText(id);
+    if (!body.noi_dung) throw new Error('Dùng: tm weekly-save [--tuan=…] "-"  (nội dung Markdown từ stdin)');
+    print(await call("PUT", "/weekly", body));
+    break;
+  }
   case "list": {
     const qs = new URLSearchParams();
     for (const [k, vs] of Object.entries(flags)) if (k !== "json") qs.set(k, vs[0]);

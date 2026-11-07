@@ -7,6 +7,7 @@ const MAIN = [
   { href: "/board", label: "Bảng", icon: "▦" },
   { href: "/backlog", label: "Backlog", icon: "☰" },
   { href: "/sprints", label: "Đợt", icon: "◷" },
+  { href: "/goals", label: "Mục tiêu", icon: "◎" },
   { href: "/records", label: "Rủi ro & quyết định", icon: "⚑" },
   { href: "/report", label: "Báo cáo", icon: "◔" },
 ];

@@ -126,6 +126,24 @@ Gán cho mỗi bài test lỗi một `khoa_ngoai` cố định, ví dụ `test:<
 
 Cuối cùng báo người dùng danh sách id đã tạo mới, đã ghi thêm, đã mở lại, đã chuyển chờ duyệt.
 
+## Báo cáo tuần (mỗi thứ Bảy)
+
+Báo cáo tuần so với **mục tiêu** do người đặt trên trang Mục tiêu (kết quả cần đạt, hạn, đợt và việc gắn kèm). Mục tiêu chỉ đọc được qua API (`tm goals`); không tự đặt hay đóng mục tiêu.
+
+1. `node .claude/skills/task-board/scripts/tm.mjs weekly --du_an=SIA` (thêm `--tuan=YYYY-MM-DD` để lấy tuần khác). Kết quả gồm:
+   - `muc_tieu`: tiến độ, `nhip_deu_can`, `danh_gia`, `du_kien_xong`, `bi_chan`;
+   - `xong_trong_tuan`, `dang_lam` (kèm `so_ngay_dung_yen`);
+   - `suc_lam`, `ke_hoach_tuan_toi`, `khong_vua_suc`, `can_nguoi_nhan`, `bi_chan`;
+   - `ban_nhap`: bản nháp Markdown.
+2. Viết báo cáo **ngắn**, đọc trong 2 phút, theo đúng bốn mục:
+   - `## Mục tiêu`: mỗi mục tiêu một dòng gồm % so với nhịp đều cần, đánh giá, và một câu vì sao (đang vướng gì).
+   - `## Đạt được`: gom theo mục tiêu, nêu kết quả chứ không chép tiêu đề từng việc; tối đa khoảng 6 dòng.
+   - `## Đang làm`: chỉ nêu việc đáng chú ý (đứng yên ≥ 5 ngày, đang chờ duyệt / kiểm tra lâu, bị chặn).
+   - `## Kế hoạch tuần tới`: theo từng người, lấy từ `ke_hoach_tuan_toi`. Đây là kế hoạch **vừa sức**, không thêm việc vượt sức làm. Ghi rõ việc cần người nhận, việc không vừa sức, việc bị chặn.
+   - Nếu có mục tiêu `khong-kip` hoặc `qua-han`: thêm `## Cần quyết`, nêu lựa chọn (lùi hạn / thu hẹp phạm vi / thêm người). Không tự quyết thay người có quyền.
+3. Chỉ dùng số trong kết quả, không tự bịa số. Thiếu dữ liệu (chưa có mục tiêu, việc chưa ước lượng) thì nói thẳng ra.
+4. Ghi: `printf '%s' "$BAO_CAO" | node .claude/skills/task-board/scripts/tm.mjs weekly-save --du_an=SIA -` (hoặc `--noi_dung_file=bc.md`). Ghi lại cùng tuần là ghi đè. Báo cho người dùng link `/report/weekly`.
+
 ## Khi cần chi tiết
 
 Đọc `reference/API.md`. Tệp này có đủ endpoint REST, mọi trường (`lien_quan`, `can_phe_duyet`…), mã lỗi `400` / `401` / `404` / `409`, và ví dụ `curl`.

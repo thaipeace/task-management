@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
   counters,
+  goals,
   meta,
   records,
   sprints,
@@ -174,11 +175,18 @@ export async function importBacklog(
             .where(eq(tasks.projectId, pid))
         : [];
 
+    let goalSprints: { id: number; sprint: string | null }[] = [];
     if (mode === "replace") {
       // xoá việc con trước để khoá ngoại việc cha không vướng; nhat_ky + bình luận xoá theo (cascade)
       await tx.delete(tasks).where(and(eq(tasks.projectId, pid), sql`${tasks.parentKey} is not null`));
       await tx.delete(tasks).where(eq(tasks.projectId, pid));
       await tx.delete(records).where(eq(records.projectId, pid));
+      // mục tiêu không nằm trong backlog.json – giữ lại, gỡ đợt tạm rồi gắn lại nếu đợt còn sau khi nạp
+      goalSprints = await tx
+        .select({ id: goals.id, sprint: goals.sprint })
+        .from(goals)
+        .where(and(eq(goals.projectId, pid), isNotNull(goals.sprint)));
+      await tx.update(goals).set({ sprint: null }).where(eq(goals.projectId, pid));
       await tx.delete(sprints).where(eq(sprints.projectId, pid));
       await tx.delete(counters).where(eq(counters.projectId, pid));
       await tx.delete(meta).where(eq(meta.projectId, pid));
@@ -344,6 +352,10 @@ export async function importBacklog(
           target: records.key,
           set: { kind, data: rest, position: i, updatedAt: new Date() },
         });
+    }
+
+    for (const g of goalSprints) {
+      if (g.sprint && sprintCodes.has(g.sprint)) await tx.update(goals).set({ sprint: g.sprint }).where(eq(goals.id, g.id));
     }
 
     // bộ đếm: lấy số lớn nhất giữa tệp, DB và id đã dùng

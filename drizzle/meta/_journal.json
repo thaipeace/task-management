@@ -36,6 +36,13 @@
       "when": 1793788222610,
       "tag": "0004_task_aliases",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794026658419,
+      "tag": "0005_goals_weekly",
+      "breakpoints": true
     }
   ]
 }

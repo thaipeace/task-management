@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Burnup, OpenHeatmap, ReleaseProgress } from "@/components/charts";
 import { CopySummary } from "@/components/copy-summary";
+import { ReportTabs } from "@/components/report-tabs";
 import { RichText } from "@/components/rich-text";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -37,6 +38,7 @@ async function ReportContent() {
         subtitle={`Tình hình đến ngày ${date.split("-").reverse().join("/")}. Đếm theo đơn vị công việc: việc con và việc không chia nhỏ (việc cha đã chia nhỏ chỉ là nhóm).`}
         actions={<CopySummary text={summaryText(sections, project.name, date.split("-").reverse().join("/"))} />}
       />
+      <ReportTabs />
 
       {T.all === 0 ? (
         <div className="card p-8 text-center text-sm text-slate-500">

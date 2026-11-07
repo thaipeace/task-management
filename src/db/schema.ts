@@ -226,8 +226,57 @@ export const meta = pgTable(
   (t) => [primaryKey({ columns: [t.projectId, t.key] })],
 );
 
+// Mục tiêu: kết quả cần đạt trước một hạn. Phạm vi = việc trong đợt gắn kèm và / hoặc các việc liệt kê –
+// tiến độ tính từ phạm vi đó nên không phải tự khai. Báo cáo tuần lấy mục tiêu làm chuẩn.
+export const goals = pgTable(
+  "goals",
+  {
+    id: serial("id").primaryKey(),
+    projectId: projectRef(),
+    title: text("title").notNull(),
+    // "Đạt khi": điều kiện kiểm chứng được (Markdown)
+    measure: text("measure").notNull().default(""),
+    ownerId: integer("owner_id").references(() => users.id, { onDelete: "set null" }),
+    startOn: text("start_on").notNull(),
+    dueOn: text("due_on").notNull(),
+    sprint: text("sprint"),
+    taskKeys: jsonb("task_keys").$type<string[]>().notNull().default([]),
+    // dang-theo | dat | khong-dat | bo – đóng mục tiêu là việc của người, không tự đổi
+    status: text("status").notNull().default("dang-theo"),
+    position: integer("position").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      name: "goals_sprint_fk",
+      columns: [t.projectId, t.sprint],
+      foreignColumns: [sprints.projectId, sprints.code],
+    }).onUpdate("cascade"),
+    index("goals_project_idx").on(t.projectId),
+  ],
+);
+
+// Báo cáo tuần: mỗi dự án một bản / tuần (tuần bắt đầu thứ Hai). Lời văn do Claude (hoặc người) viết,
+// snapshot giữ số liệu lúc viết để xem lại tuần cũ không bị số mới đè.
+export const weeklyReports = pgTable(
+  "weekly_reports",
+  {
+    id: serial("id").primaryKey(),
+    projectId: projectRef(),
+    weekStart: text("week_start").notNull(),
+    body: text("body").notNull(),
+    snapshot: jsonb("snapshot").$type<Record<string, unknown>>().notNull().default({}),
+    authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("weekly_reports_week_idx").on(t.projectId, t.weekStart)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type Sprint = typeof sprints.$inferSelect;
 export type TaskRecord = typeof records.$inferSelect;
+export type Goal = typeof goals.$inferSelect;
