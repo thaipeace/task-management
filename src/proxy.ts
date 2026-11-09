@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 // Kiểm tra lạc quan: chưa có cookie phiên thì đưa về trang đăng nhập.
 // Quyền thật được kiểm lại ở từng trang / server action.
 // /api/v1 tự xác thực bằng Bearer token, không dùng cookie
-const PUBLIC = ["/login", "/setup", "/invite/", "/api/v1/"];
+const PUBLIC = ["/login", "/setup", "/invite/", "/forgot-password", "/reset-password/", "/api/v1/"];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
