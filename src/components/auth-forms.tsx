@@ -53,13 +53,18 @@ export function SetupForm() {
   );
 }
 
-export function AcceptInviteForm({ token, email }: { token: string; email: string }) {
-  const [state, onSubmit, pending] = useFormAction(acceptInvite, undefined, { loading: "Đang tạo tài khoản…", success: "Chào mừng bạn!" });
+// existingName: link đặt lại mật khẩu của tài khoản đã có – giữ nguyên tên, không hỏi lại
+export function AcceptInviteForm({ token, email, existingName }: { token: string; email: string; existingName?: string }) {
+  const [state, onSubmit, pending] = useFormAction(
+    acceptInvite,
+    undefined,
+    existingName ? { loading: "Đang đặt mật khẩu…", success: "Đã đặt mật khẩu mới" } : { loading: "Đang tạo tài khoản…", success: "Chào mừng bạn!" },
+  );
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <input type="hidden" name="token" value={token} />
       <Field label="Email" name="email_display" value={email} disabled readOnly />
-      <Field label="Tên hiển thị" name="name" required autoFocus />
+      {existingName ? <input type="hidden" name="name" value={existingName} /> : <Field label="Tên hiển thị" name="name" required autoFocus />}
       <Field label="Mật khẩu (≥ 8 ký tự)" name="password" type="password" autoComplete="new-password" minLength={8} required />
       <Field label="Nhập lại mật khẩu" name="confirm" type="password" autoComplete="new-password" required />
       <Message state={state} />

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { InviteForm, RevokeInviteButton, UserActions } from "@/components/admin-users";
+import { InviteForm, ResetLinkButton, RevokeInviteButton, UserActions } from "@/components/admin-users";
 import { Avatar, Loading, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { listAllUsers, listPendingInvites } from "@/lib/queries";
@@ -30,13 +30,19 @@ async function UsersContent() {
       {invites.length > 0 && (
         <section className="card overflow-hidden">
           <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold">
-            Link mời đang chờ ({invites.length})
+            Link đang chờ ({invites.length})
           </h2>
           <ul className="divide-y divide-slate-100 text-sm">
             {invites.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center gap-3 px-4 py-2">
                 <span className="font-medium">{i.email}</span>
-                <span className="text-xs text-slate-500">{i.role === "admin" ? "Quản trị" : "Thành viên"}</span>
+                <span className="text-xs text-slate-500">
+                  {users.some((u) => u.email === i.email)
+                    ? "Đặt lại mật khẩu – mật khẩu cũ còn dùng được tới khi hoàn tất"
+                    : i.role === "admin"
+                      ? "Quản trị"
+                      : "Thành viên"}
+                </span>
                 <span className="ml-auto text-xs text-slate-500">hết hạn {fmt.format(i.expiresAt)}</span>
                 <RevokeInviteButton id={i.id} />
               </li>
@@ -67,9 +73,17 @@ async function UsersContent() {
               >
                 {u.role === "admin" ? "Quản trị" : "Thành viên"}
               </span>
-              <div className="ml-auto">
-                <UserActions userId={u.id} role={u.role} active={u.active} isSelf={u.id === me.id} />
-              </div>
+              {u.active && u.id !== me.id ? (
+                <ResetLinkButton userId={u.id}>
+                  <div className="ml-auto">
+                    <UserActions userId={u.id} role={u.role} active={u.active} isSelf={false} />
+                  </div>
+                </ResetLinkButton>
+              ) : (
+                <div className="ml-auto">
+                  <UserActions userId={u.id} role={u.role} active={u.active} isSelf={u.id === me.id} />
+                </div>
+              )}
             </li>
           ))}
         </ul>

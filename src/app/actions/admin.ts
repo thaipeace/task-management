@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -10,6 +10,7 @@ import { importBacklog, type ImportSummary } from "@/lib/backlog";
 import { getProjectById } from "@/lib/projects";
 
 const INVITE_DAYS = 7;
+const RESET_HOURS = 24;
 
 export type InviteState = { error?: string; token?: string; email?: string } | undefined;
 
@@ -36,6 +37,32 @@ export async function createInvite(_: InviteState, form: FormData): Promise<Invi
   return { token, email: parsed.data.email };
 }
 
+// Link đặt lại mật khẩu: mật khẩu cũ vẫn dùng được cho tới khi người dùng hoàn tất trên trang link
+export async function createResetLink(userId: number) {
+  const me = await requireAdmin();
+  if (userId === me.id) throw new Error("Tự đổi mật khẩu ở trang Tài khoản");
+  const [user] = await db
+    .select({ email: users.email, role: users.role })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.active, true)));
+  if (!user) throw new Error("Tài khoản không tồn tại hoặc đang khoá");
+
+  const token = newToken();
+  await db.transaction(async (tx) => {
+    // mỗi người chỉ một link còn hiệu lực
+    await tx.delete(invites).where(and(eq(invites.email, user.email), isNull(invites.usedAt)));
+    await tx.insert(invites).values({
+      tokenHash: hashToken(token),
+      email: user.email,
+      role: user.role,
+      createdById: me.id,
+      expiresAt: new Date(Date.now() + RESET_HOURS * 3_600_000),
+    });
+  });
+  refresh();
+  return { token, email: user.email };
+}
+
 export async function revokeInvite(id: number) {
   await requireAdmin();
   await db.delete(invites).where(eq(invites.id, id));
@@ -52,8 +79,16 @@ export async function setUserRole(userId: number, role: "admin" | "member") {
 export async function setUserActive(userId: number, active: boolean) {
   const me = await requireAdmin();
   if (userId === me.id) throw new Error("Không tự khoá tài khoản của mình");
-  await db.update(users).set({ active }).where(and(eq(users.id, userId), ne(users.id, me.id)));
-  if (!active) await db.delete(sessions).where(eq(sessions.userId, userId));
+  const [user] = await db
+    .update(users)
+    .set({ active })
+    .where(and(eq(users.id, userId), ne(users.id, me.id)))
+    .returning({ email: users.email });
+  if (!active) {
+    await db.delete(sessions).where(eq(sessions.userId, userId));
+    // link còn chờ sẽ mở khoá lại tài khoản khi dùng – phải bỏ cùng lúc khoá
+    if (user) await db.delete(invites).where(and(eq(invites.email, user.email), isNull(invites.usedAt)));
+  }
   refresh();
 }
 

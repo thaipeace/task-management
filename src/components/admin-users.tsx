@@ -2,11 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { useToastAction, withToast } from "./use-form-action";
-import { createInvite, revokeInvite, setUserActive, setUserRole } from "@/app/actions/admin";
+import { createInvite, createResetLink, revokeInvite, setUserActive, setUserRole } from "@/app/actions/admin";
 
 export function InviteForm() {
   const [state, action, pending] = useActionState(withToast(createInvite, { loading: "Đang tạo link mời…", success: "Đã tạo link mời" }), undefined);
-  const [copied, setCopied] = useState(false);
   // token chỉ có sau khi bấm tạo (phía trình duyệt) nên đọc window ở đây an toàn
   const link = state?.token ? `${window.location.origin}/invite/${state.token}` : null;
 
@@ -28,28 +27,60 @@ export function InviteForm() {
         </button>
       </form>
       {state?.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
-      {link && (
-        <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-3">
-          <div className="mb-1 text-sm text-green-900">
-            Link cho <b>{state?.email}</b> – chỉ hiện một lần, hãy copy ngay:
-          </div>
-          <div className="flex gap-2">
-            <input readOnly value={link} onFocus={(e) => e.target.select()} className="input font-mono text-xs" />
-            <button
-              type="button"
-              onClick={async () => {
-                await navigator.clipboard.writeText(link);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="btn-secondary shrink-0"
-            >
-              {copied ? "Đã copy ✓" : "Copy"}
-            </button>
-          </div>
-        </div>
-      )}
+      {link && <LinkBox link={link} email={state?.email ?? ""} />}
     </div>
+  );
+}
+
+function LinkBox({ link, email }: { link: string; email: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div data-link-box className="mt-3 w-full rounded-md border border-green-200 bg-green-50 p-3">
+      <div className="mb-1 text-sm text-green-900">
+        Link cho <b>{email}</b> – chỉ hiện một lần, hãy copy ngay:
+      </div>
+      <div className="flex gap-2">
+        <input readOnly value={link} onFocus={(e) => e.target.select()} className="input font-mono text-xs" />
+        <button
+          type="button"
+          onClick={async () => {
+            await navigator.clipboard.writeText(link);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="btn-secondary shrink-0"
+        >
+          {copied ? "Đã copy ✓" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Nút + ô link nằm ở dòng của người dùng, link rớt xuống hàng riêng
+export function ResetLinkButton({ userId, children }: { userId: number; children: React.ReactNode }) {
+  const [pending, run] = useToastAction();
+  const [created, setCreated] = useState<{ link: string; email: string } | null>(null);
+  return (
+    <>
+      {children}
+      <button
+        disabled={pending}
+        onClick={() =>
+          run(
+            async () => {
+              const r = await createResetLink(userId);
+              setCreated({ link: `${window.location.origin}/invite/${r.token}`, email: r.email });
+            },
+            { loading: "Đang tạo link…", success: "Đã tạo link đặt lại mật khẩu", error: "Không tạo được link" },
+          )
+        }
+        className="btn-secondary py-1 text-xs"
+      >
+        Đặt lại mật khẩu
+      </button>
+      {created && <LinkBox link={created.link} email={created.email} />}
+    </>
   );
 }
 

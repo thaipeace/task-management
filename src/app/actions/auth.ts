@@ -101,6 +101,7 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
         .set({ name: parsed.data.name, passwordHash, active: true })
         .where(eq(users.id, existing.id));
       await tx.delete(sessions).where(eq(sessions.userId, existing.id));
+      await tx.delete(invites).where(and(eq(invites.email, invite.email), isNull(invites.usedAt)));
       return existing.id;
     }
     const [created] = await tx

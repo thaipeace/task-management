@@ -41,16 +41,16 @@ async function InviteContent({ params }: Pick<PageProps<"/invite/[token]">, "par
       </>
     );
   }
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, invite.email));
+  const [existing] = await db.select({ name: users.name }).from(users).where(eq(users.email, invite.email));
   return (
     <>
       <h1 className="mb-1 text-lg font-semibold">{existing ? "Đặt lại mật khẩu" : "Chào mừng!"}</h1>
       <p className="mb-5 text-sm text-slate-500">
         {existing
-          ? "Đặt mật khẩu mới cho tài khoản của bạn. Các phiên đăng nhập cũ sẽ bị đăng xuất."
+          ? "Đặt mật khẩu mới cho tài khoản của bạn. Mật khẩu cũ vẫn dùng được cho tới khi bạn bấm lưu; sau đó các phiên đăng nhập cũ sẽ bị đăng xuất."
           : "Đặt tên và mật khẩu – lần sau đăng nhập bằng email + mật khẩu này."}
       </p>
-      <AcceptInviteForm token={token} email={invite.email} />
+      <AcceptInviteForm token={token} email={invite.email} existingName={existing?.name} />
     </>
   );
 }
