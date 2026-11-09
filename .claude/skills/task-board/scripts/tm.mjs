@@ -30,6 +30,8 @@ const HELP = `Dùng:
   tm record-update QD-002 --tra_loi="…"  sửa một phần; "null" = xoá trường
   tm goals [--du_an=SIA]                 mục tiêu kèm tiến độ, đánh giá nhịp
   tm weekly [--du_an=SIA] [--tuan=2026-11-07]   số liệu báo cáo tuần so với mục tiêu + bản nháp (+ bản đã viết)
+  tm releases [--du_an=SIA] [--main=2.45.0]     các đợt Dev release, mới nhất trước
+  tm release-save --main=2.45.0 [--rc=2] [--du_an=SIA] "-"   ghi đợt Dev release (không có --rc: tự lấy rc kế tiếp; có --rc: ghi đè)
   tm weekly-save [--du_an=SIA] [--tuan=…] "-"   ghi báo cáo tuần (Markdown, "-" = stdin; hoặc --noi_dung_file=bc.md)
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
@@ -113,7 +115,7 @@ const print = (x) => console.log(JSON.stringify(x, null, 2));
 const { pos, flags } = parseArgs(process.argv.slice(2));
 const [cmd, id, text, text2] = pos;
 // dự án mặc định từ môi trường cho lệnh chạy trong một dự án
-if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records", "record-create", "goals", "weekly", "weekly-save"].includes(cmd)) {
+if (process.env.TM_PROJECT && !flags.du_an && ["create", "list", "sprints", "records", "record-create", "goals", "weekly", "weekly-save", "releases", "release-save"].includes(cmd)) {
   flags.du_an = [process.env.TM_PROJECT];
 }
 
@@ -153,6 +155,20 @@ switch (cmd) {
     if (flags.du_an) qs.set("du_an", flags.du_an[0]);
     if (flags.tuan) qs.set("tuan", flags.tuan[0]);
     print(await call("GET", "/weekly" + (qs.size ? `?${qs}` : "")));
+    break;
+  }
+  case "releases": {
+    const qs = new URLSearchParams();
+    if (flags.du_an) qs.set("du_an", flags.du_an[0]);
+    if (flags.main) qs.set("main", flags.main[0]);
+    print(await call("GET", "/releases" + (qs.size ? `?${qs}` : "")));
+    break;
+  }
+  case "release-save": {
+    const body = await bodyFromFlags(flags);
+    if (id) body.noi_dung = readText(id);
+    if (!body.main || !body.noi_dung) throw new Error('Dùng: tm release-save --main=2.45.0 [--rc=2] "-"  (nội dung Markdown từ stdin)');
+    print(await call("PUT", "/releases", body));
     break;
   }
   case "weekly-save": {

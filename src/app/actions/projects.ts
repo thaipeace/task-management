@@ -5,7 +5,7 @@ import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { counters, goals, meta, projects, records, sprints, tasks, weeklyReports } from "@/db/schema";
+import { counters, devReleases, goals, meta, projects, records, sprints, tasks, weeklyReports } from "@/db/schema";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { AREAS, RECORD_KINDS } from "@/lib/constants";
 import { PROJECT_CODE, PROJECT_COOKIE, getProjectByCode } from "@/lib/projects";
@@ -81,6 +81,7 @@ export async function deleteProject(id: number) {
   if (task || record) throw new Error("Dự án còn việc hoặc AR/QD – không xoá được");
   await db.transaction(async (tx) => {
     await tx.delete(weeklyReports).where(eq(weeklyReports.projectId, id));
+    await tx.delete(devReleases).where(eq(devReleases.projectId, id));
     await tx.delete(goals).where(eq(goals.projectId, id));
     await tx.delete(sprints).where(eq(sprints.projectId, id));
     await tx.delete(counters).where(eq(counters.projectId, id));

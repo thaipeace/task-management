@@ -82,6 +82,8 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | PATCH | `/records/{id}` | Sửa một phần: chỉ gửi trường cần đổi, `null` = xoá trường. Trường lạ có sẵn (từ backlog.json) được giữ |
 | GET | `/goals` | Mục tiêu kèm tiến độ tính đến hôm nay (`?du_an=SIA`). Chỉ đọc; mục tiêu đặt trên web |
 | GET | `/weekly` | Số liệu báo cáo tuần so với mục tiêu, kèm `ban_nhap` (Markdown) và `bao_cao` (bản đã viết hoặc `null`). `?du_an=SIA&tuan=YYYY-MM-DD` (ngày bất kỳ trong tuần; tuần bắt đầu thứ Hai; không gửi thì là tuần này). `cach_tinh` giải thích công thức |
+| GET | `/releases` | Các đợt Dev release, mới nhất trước. `?du_an=SIA&main=2.45.0` |
+| PUT | `/releases` | `{ "du_an": "SIA", "main": "2.45.0", "rc"?: 2, "noi_dung": "Markdown" }` → không gửi `rc` thì tạo đợt mới với số kế tiếp (`2.45.0-rc1`, `-rc2`…); gửi `rc` thì ghi đè đợt đó. Trả `phien_ban`, `rc`, `tao_moi` |
 | PUT | `/weekly` | `{ "du_an": "SIA", "tuan"?: "YYYY-MM-DD", "noi_dung": "Markdown" }` → ghi hoặc ghi đè báo cáo tuần; lưu kèm số liệu lúc ghi |
 | POST | `/tasks/{id}/logs` | `{ "ghi": "…" }` → thêm một dòng `nhat_ky` |
 

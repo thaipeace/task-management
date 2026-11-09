@@ -274,6 +274,21 @@ export const weeklyReports = pgTable(
   (t) => [uniqueIndex("weekly_reports_week_idx").on(t.projectId, t.weekStart)],
 );
 
+export const devReleases = pgTable(
+  "dev_releases",
+  {
+    id: serial("id").primaryKey(),
+    projectId: projectRef(),
+    mainVersion: text("main_version").notNull(),
+    rc: integer("rc").notNull(),
+    body: text("body").notNull(),
+    authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("dev_releases_version_idx").on(t.projectId, t.mainVersion, t.rc)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Task = typeof tasks.$inferSelect;

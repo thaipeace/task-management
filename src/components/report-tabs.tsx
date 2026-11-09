@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/report", label: "Tổng quan" },
   { href: "/report/weekly", label: "Báo cáo tuần" },
+  { href: "/report/releases", label: "Dev release" },
 ];
 
 export function ReportTabs() {

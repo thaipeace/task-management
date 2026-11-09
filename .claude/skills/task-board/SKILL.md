@@ -144,6 +144,15 @@ Báo cáo tuần so với **mục tiêu** do người đặt trên trang Mục t
 3. Chỉ dùng số trong kết quả, không tự bịa số. Thiếu dữ liệu (chưa có mục tiêu, việc chưa ước lượng) thì nói thẳng ra.
 4. Ghi: `printf '%s' "$BAO_CAO" | node .claude/skills/task-board/scripts/tm.mjs weekly-save --du_an=SIA -` (hoặc `--noi_dung_file=bc.md`). Ghi lại cùng tuần là ghi đè. Báo cho người dùng link `/report/weekly`.
 
+## Dev release
+
+Mỗi đợt release lên Dev là một bản ghi ở tab Dev release trong Báo cáo, đánh số theo version của main: main `2.45.0` thì đợt đầu là `2.45.0-rc1`.
+
+1. Lấy version **đang có trên main** từ repo (ví dụ `package.json` của nhánh main). Không tự đoán, không tự tăng version.
+2. Viết nội dung Markdown ngắn: thay đổi chính (kèm mã việc như `SIA-012`), điểm cần kiểm tra, việc phải làm khi triển khai nếu có.
+3. Ghi: `printf '%s' "$NOI_DUNG" | node .claude/skills/task-board/scripts/tm.mjs release-save --du_an=SIA --main=2.45.0 -` (hoặc `--noi_dung_file=rl.md`). Hệ thống tự cấp số rc kế tiếp và trả về trong `phien_ban`.
+4. Chỉ thêm `--rc=N` khi sửa lại đợt `N` đã có; lệnh này ghi đè. Nếu lệnh ghi bị lỗi mạng và không rõ đã lưu chưa, chạy `tm releases --main=…` trước khi ghi lại để tránh tạo trùng đợt. Báo cho người dùng link `/report/releases`.
+
 ## Khi cần chi tiết
 
 Đọc `reference/API.md`. Tệp này có đủ endpoint REST, mọi trường (`lien_quan`, `can_phe_duyet`…), mã lỗi `400` / `401` / `404` / `409`, và ví dụ `curl`.
