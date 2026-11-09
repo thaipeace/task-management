@@ -54,22 +54,6 @@ export const invites = pgTable("invites", {
   usedAt: timestamp("used_at", { withTimezone: true }),
 });
 
-// Link đặt lại mật khẩu gửi qua email – chỉ lưu sha256, dùng một lần
-export const passwordResets = pgTable(
-  "password_resets",
-  {
-    id: serial("id").primaryKey(),
-    tokenHash: text("token_hash").notNull().unique(),
-    userId: integer("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    usedAt: timestamp("used_at", { withTimezone: true }),
-  },
-  (t) => [index("password_resets_user_idx").on(t.userId)],
-);
-
 // Dự án: mỗi dự án là một backlog riêng (đợt, việc, AR/QD, meta), import / export riêng
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),

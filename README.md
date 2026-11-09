@@ -30,7 +30,6 @@ Next.js 16 (App Router, Server Actions) · Drizzle ORM · Postgres (Neon) · Ver
 3. **Vercel**: import repo, đặt biến môi trường
    - `DATABASE_URL`: chuỗi Neon (nên dùng bản pooled `-pooler`). Nếu dùng tích hợp Neon trên Vercel thì biến này được điền sẵn.
    - `SETUP_SECRET`: chuỗi ngẫu nhiên (`openssl rand -base64 24`).
-   - `RESEND_API_KEY`, `MAIL_FROM`, `APP_URL`: gửi thư quên mật khẩu qua Resend (`MAIL_FROM` phải thuộc tên miền đã xác minh trên Resend).
 4. Mở `https://<app>/setup`, nhập `SETUP_SECRET` để tạo quản trị viên đầu tiên. Trang này chỉ dùng được khi DB chưa có người dùng nào.
 5. Vào **Import / Export** để nạp `backlog.json`, rồi vào **Người dùng** để mời mọi người.
 
@@ -64,6 +63,6 @@ src/lib/backlog.ts      import / export backlog.json, cấp id
 src/lib/auth.ts         phiên (cookie httpOnly, DB lưu sha256), bcrypt
 src/app/actions/        server actions (auth, admin, tasks)
 src/app/(app)/          các trang cần đăng nhập
-src/app/(auth)/         login, setup, invite/[token], forgot-password, reset-password/[token]
+src/app/(auth)/         login, setup, invite/[token]
 src/proxy.ts            chưa có cookie thì chuyển về /login
 ```

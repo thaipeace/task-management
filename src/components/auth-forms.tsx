@@ -1,16 +1,7 @@
 "use client";
 
 import { useFormAction } from "./use-form-action";
-import Link from "next/link";
-import {
-  acceptInvite,
-  login,
-  requestPasswordReset,
-  resetPassword,
-  setupAdmin,
-  updateAccount,
-  type FormState,
-} from "@/app/actions/auth";
+import { acceptInvite, login, setupAdmin, updateAccount, type FormState } from "@/app/actions/auth";
 
 function Field({
   label,
@@ -41,45 +32,6 @@ export function LoginForm() {
       <Message state={state} />
       <button disabled={pending} className="btn-primary w-full">
         {pending ? "Đang đăng nhập…" : "Đăng nhập"}
-      </button>
-      <p className="text-center text-sm">
-        <Link href="/forgot-password" className="text-brand hover:underline">
-          Quên mật khẩu?
-        </Link>
-      </p>
-    </form>
-  );
-}
-
-export function ForgotPasswordForm() {
-  // câu trả lời đã hiện ngay trong form, không cần toast
-  const [state, onSubmit, pending] = useFormAction(requestPasswordReset, undefined, false);
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Email" name="email" type="email" autoComplete="email" required autoFocus />
-      <Message state={state} />
-      <button disabled={pending} className="btn-primary w-full">
-        {pending ? "Đang gửi…" : "Gửi link đặt lại mật khẩu"}
-      </button>
-      <p className="text-center text-sm">
-        <Link href="/login" className="text-brand hover:underline">
-          Về trang đăng nhập
-        </Link>
-      </p>
-    </form>
-  );
-}
-
-export function ResetPasswordForm({ token }: { token: string }) {
-  const [state, onSubmit, pending] = useFormAction(resetPassword, undefined, { loading: "Đang đặt mật khẩu…", success: "Đã đặt mật khẩu mới" });
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <input type="hidden" name="token" value={token} />
-      <Field label="Mật khẩu mới (≥ 8 ký tự)" name="password" type="password" autoComplete="new-password" minLength={8} required autoFocus />
-      <Field label="Nhập lại mật khẩu mới" name="confirm" type="password" autoComplete="new-password" required />
-      <Message state={state} />
-      <button disabled={pending} className="btn-primary w-full">
-        {pending ? "Đang lưu…" : "Đặt mật khẩu mới"}
       </button>
     </form>
   );

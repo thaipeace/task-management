@@ -2,10 +2,9 @@
 
 import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import { invites, passwordResets, sessions, users } from "@/db/schema";
+import { invites, sessions, users } from "@/db/schema";
 import {
   createSession,
   destroySession,
@@ -14,7 +13,6 @@ import {
   requireUser,
   verifyPassword,
 } from "@/lib/auth";
-import { sendPasswordReset } from "@/lib/password-reset";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -113,57 +111,6 @@ export async function acceptInvite(_: FormState, form: FormData): Promise<FormSt
   });
 
   if (!userId) return { error: "Link mời không còn hiệu lực (đã dùng, đã huỷ hoặc hết hạn)" };
-  await createSession(userId);
-  redirect("/board");
-}
-
-// Câu trả lời như nhau dù email có tài khoản hay không; tra cứu và gửi thư chạy sau khi đã phản hồi
-// để thời gian phản hồi cũng không lộ email nào có tài khoản
-export async function requestPasswordReset(_: FormState, form: FormData): Promise<FormState> {
-  const parsed = z.object({ email }).safeParse(Object.fromEntries(form));
-  if (!parsed.success) return { error: firstError(parsed.error) };
-  after(() => sendPasswordReset(parsed.data.email).catch((e) => console.error("Không gửi được thư đặt lại mật khẩu", e)));
-  return { ok: "Nếu email này có tài khoản, thư đặt lại mật khẩu sẽ tới trong ít phút. Nhớ xem cả mục Spam." };
-}
-
-export async function resetPassword(_: FormState, form: FormData): Promise<FormState> {
-  const parsed = z
-    .object({ token: z.string().min(1), password, confirm: z.string() })
-    .safeParse(Object.fromEntries(form));
-  if (!parsed.success) return { error: firstError(parsed.error) };
-  if (parsed.data.password !== parsed.data.confirm) return { error: "Hai mật khẩu không khớp" };
-
-  const passwordHash = await hashPassword(parsed.data.password);
-  const userId = await db.transaction(async (tx) => {
-    // đánh dấu đã dùng ngay trong câu update để link chỉ dùng được một lần
-    const [reset] = await tx
-      .update(passwordResets)
-      .set({ usedAt: new Date() })
-      .where(
-        and(
-          eq(passwordResets.tokenHash, hashToken(parsed.data.token)),
-          isNull(passwordResets.usedAt),
-          gt(passwordResets.expiresAt, new Date()),
-        ),
-      )
-      .returning({ userId: passwordResets.userId });
-    if (!reset) return null;
-    const [user] = await tx
-      .update(users)
-      .set({ passwordHash })
-      .where(and(eq(users.id, reset.userId), eq(users.active, true)))
-      .returning({ id: users.id });
-    if (!user) return null;
-    // đăng xuất mọi phiên cũ và vô hiệu các link khác còn hạn
-    await tx.delete(sessions).where(eq(sessions.userId, user.id));
-    await tx
-      .update(passwordResets)
-      .set({ usedAt: new Date() })
-      .where(and(eq(passwordResets.userId, user.id), isNull(passwordResets.usedAt)));
-    return user.id;
-  });
-
-  if (!userId) return { error: "Link không còn hiệu lực (đã dùng hoặc đã hết hạn). Hãy yêu cầu link mới." };
   await createSession(userId);
   redirect("/board");
 }

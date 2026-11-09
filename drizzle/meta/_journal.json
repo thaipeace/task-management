@@ -43,13 +43,6 @@
       "when": 1794026658419,
       "tag": "0005_goals_weekly",
       "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1794212336512,
-      "tag": "0006_password_resets",
-      "breakpoints": true
     }
   ]
 }
