@@ -125,7 +125,7 @@ Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
 | `loai` | enum | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu`. Mặc định `loi` |
 | `dot` | string \| null | Mã đợt phải có sẵn trong dự án của việc (xem `/sprints?du_an=…`) |
 | `uu_tien` | enum | `P0` \| `P1` \| `P2` \| `P3`. Mặc định `P2` |
-| `trang_thai` | enum | `moi` \| `san-sang` \| `dang-lam` \| `cho-duyet` \| `dang-kiem-tra` (đang kiểm tra) \| `xong` (xong trên dev) \| `released` (đã lên production) \| `huy`. Mặc định `moi` |
+| `trang_thai` | enum | `moi` \| `san-sang` \| `can-thong-tin` (bị chặn / cần hỏi chốt phương án) \| `dang-lam` \| `cho-duyet` \| `dang-kiem-tra` (đang kiểm tra) \| `xong` (xong trên dev) \| `released` (đã lên production) \| `huy`. Mặc định `moi` |
 | `uoc_luong` | enum \| null | `S` \| `M` \| `L` |
 | `phien_ban` | string \| null | Bản release đầu tiên có việc, vd. `2.45.8-rc1` (gắn qua `PUT /releases` với `viec`) |
 | `mo_ta`, `rui_ro`, `nguon` | string | |

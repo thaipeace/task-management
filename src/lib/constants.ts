@@ -19,6 +19,15 @@ export const STATUSES = [
     count: "bg-sky-200 text-sky-900",
   },
   {
+    // bị chặn hoặc cần hỏi ý kiến / chốt phương án trước khi làm tiếp
+    value: "can-thong-tin",
+    label: "Cần thêm thông tin",
+    color: "bg-orange-100 text-orange-800",
+    column: "bg-orange-100/70",
+    accent: "border-t-orange-500",
+    count: "bg-orange-200 text-orange-900",
+  },
+  {
     value: "dang-lam",
     label: "Đang làm",
     color: "bg-blue-100 text-blue-800",

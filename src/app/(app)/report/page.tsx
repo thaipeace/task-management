@@ -59,7 +59,7 @@ async function ReportContent() {
               note={T.p0Open ? `${T.p0Open} việc chặn phát hành` : "không có P0"}
               alert={T.p0Open > 0}
             />
-            <Stat label="Chờ quyết định" value={r.decisions.length} note={`${T.risks} rủi ro đã chấp nhận`} />
+            <Stat label="Chờ quyết định" value={r.decisions.length} note={[T.blocked && `${T.blocked} việc cần thêm thông tin`, `${T.risks} rủi ro đã chấp nhận`].filter(Boolean).join(" · ")} />
           </div>
 
           <section className="card p-4 md:p-5">

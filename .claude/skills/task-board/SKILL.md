@@ -88,13 +88,14 @@ Giá trị hợp lệ:
 | Trường | Giá trị |
 | --- | --- |
 | `mang` | `BE` \| `FE` \| `OPS` \| `DOC` |
-| `trang_thai` | `moi` → `san-sang` → `dang-lam` → `cho-duyet` → `dang-kiem-tra` (đang kiểm tra) → `xong` (xong trên dev) → `released` (đã lên production), hoặc `huy` |
+| `trang_thai` | `moi` → `san-sang` → `can-thong-tin` (cần thêm thông tin: bị chặn / chờ chốt phương án) → `dang-lam` → `cho-duyet` → `dang-kiem-tra` (đang kiểm tra) → `xong` (xong trên dev) → `released` (đã lên production), hoặc `huy` |
 | `uu_tien` | `P0` (chặn phát hành) \| `P1` (làm ngay) \| `P2` (trong đợt) \| `P3` (khi rảnh) |
 | `loai` | `bao-mat` \| `loi` \| `don-dep` \| `hieu-nang` \| `tai-cau-truc` \| `tinh-nang` \| `tai-lieu` |
 | `uoc_luong` | `S` (≤ nửa ngày) \| `M` (1–2 ngày) \| `L` (≥ 3 ngày) |
 | `phien_ban` | bản release đầu tiên có việc này, vd. `2.45.8-rc1`. Thường gắn qua `release-save --viec`, không tự đặt khi chưa có nhánh release |
 
 - Trường danh sách (`bang_chung`, `viec_can_lam`, `tieu_chi_xong`, `kiem_thu`, `phu_thuoc`): lặp cờ để có nhiều dòng. Khi `update`, danh sách mới **thay hẳn** danh sách cũ, nên muốn thêm một dòng thì `get` trước rồi gửi lại cả danh sách.
+- Việc bị chặn hoặc cần người khác cho ý kiến / chốt phương án: chuyển sang `can-thong-tin` và **ghi bình luận** nói rõ đang thiếu gì, cần ai trả lời. Có thông tin rồi thì chuyển lại `dang-lam` (hoặc `san-sang`).
 - `--truong=null` xoá giá trị của trường đó.
 - Gửi nguyên một object JSON: `--json-body='{…}'` hoặc `--file=viec.json`.
 

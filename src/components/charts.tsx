@@ -9,6 +9,8 @@ import { useEffect, useRef, useState } from "react";
 export const STATUS_RAMP: Record<string, string> = {
   moi: "#86b6ef",
   "san-sang": "#649fe9",
+  // bị chặn: khác sắc để nổi bật trên thang xanh
+  "can-thong-tin": "#eb6834",
   "dang-lam": "#4588e0",
   "cho-duyet": "#2c71cc",
   "dang-kiem-tra": "#205aaa",
