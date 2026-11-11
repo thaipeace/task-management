@@ -31,7 +31,7 @@ const HELP = `Dùng:
   tm goals [--du_an=SIA]                 mục tiêu kèm tiến độ, đánh giá nhịp
   tm weekly [--du_an=SIA] [--tuan=2026-11-07]   số liệu báo cáo tuần so với mục tiêu + bản nháp (+ bản đã viết)
   tm releases [--du_an=SIA] [--main=2.45.0]     các đợt Dev release, mới nhất trước
-  tm release-save --main=2.45.0 [--rc=2] [--du_an=SIA] "-"   ghi đợt Dev release (không có --rc: tự lấy rc kế tiếp; có --rc: ghi đè)
+  tm release-save --main=2.45.0 [--rc=2] [--viec=SIA-003 --viec=…] [--du_an=SIA] "-"   ghi đợt Dev release (không có --rc: tự lấy rc kế tiếp; có --rc: ghi đè); --viec gắn bản này vào việc
   tm weekly-save [--du_an=SIA] [--tuan=…] "-"   ghi báo cáo tuần (Markdown, "-" = stdin; hoặc --noi_dung_file=bc.md)
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
@@ -46,7 +46,7 @@ Văn bản (mo_ta, rui_ro, bình luận, nhật ký…) là Markdown: **đậm**
 Văn bản dài nhiều dòng: --mo_ta_file=mo-ta.md (mọi trường: --<trường>_file=đường-dẫn), hoặc --mo_ta=- để đọc stdin.
 Giá trị "null" = xoá trường. Hoặc gửi nguyên JSON: --json-body='{"tieu_de":"…"}' / --file=viec.json`;
 
-const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc", "chan_viec"];
+const LIST_FIELDS = ["bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "phu_thuoc", "chan_viec", "viec"];
 
 function parseArgs(argv) {
   const pos = [];

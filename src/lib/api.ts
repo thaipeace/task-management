@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { apiTokens, sprints, users, type Project } from "@/db/schema";
 import { hashToken, newToken, type CurrentUser } from "./auth";
-import { AREAS, ESTIMATES, PRIORITIES, STATUSES, TYPES } from "./constants";
+import { AREAS, ESTIMATES, PRIORITIES, RELEASE_VERSION, RELEASE_VERSION_HINT, STATUSES, TYPES } from "./constants";
 import { getDefaultProject, getProjectByCode } from "./projects";
 import { normalizeKey } from "./task-keys";
 import { TaskRuleError, resolveTaskKey, type TaskData } from "./task-service";
@@ -109,6 +109,7 @@ const taskFields = {
   uu_tien: enumOf(PRIORITIES),
   trang_thai: enumOf(STATUSES),
   uoc_luong: enumOf(ESTIMATES).nullable(),
+  phien_ban: z.string().trim().regex(RELEASE_VERSION, `phien_ban ${RELEASE_VERSION_HINT}`).nullable(),
   mo_ta: z.string(),
   bang_chung: strList,
   viec_can_lam: strList,
@@ -173,6 +174,7 @@ export async function toTaskData(input: TaskInput, projectId: number): Promise<P
     ["uu_tien", "priority"],
     ["trang_thai", "status"],
     ["uoc_luong", "estimate"],
+    ["phien_ban", "releasedVersion"],
     ["mo_ta", "description"],
     ["bang_chung", "evidence"],
     ["viec_can_lam", "steps"],

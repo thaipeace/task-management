@@ -205,6 +205,16 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
               <dd className="break-all">{t.sprint ?? <Empty />}</dd>
               <dt className="text-slate-500">Ước lượng</dt>
               <dd>{t.estimate ? labelOf(ESTIMATES, t.estimate) : <Empty />}</dd>
+              <dt className="text-slate-500">Bản release</dt>
+              <dd className="font-mono text-xs">
+                {t.releasedVersion ? (
+                  <Link href={`/report/releases#${t.releasedVersion}`} className="text-brand hover:underline">
+                    {t.releasedVersion}
+                  </Link>
+                ) : (
+                  <Empty />
+                )}
+              </dd>
               <dt className="text-slate-500">Phụ thuộc</dt>
               <dd>
                 <IdLinks ids={t.dependsOn} />

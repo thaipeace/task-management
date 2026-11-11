@@ -106,6 +106,8 @@ export const tasks = pgTable(
     priority: text("priority").notNull().default("P2"),
     status: text("status").notNull().default("moi"),
     estimate: text("estimate"),
+    // bản release đầu tiên có việc này (vd. 2.45.8-rc1), gắn khi tạo nhánh release
+    releasedVersion: text("released_version"),
     description: text("description").notNull().default(""),
     evidence: jsonb("evidence").$type<string[]>().notNull().default([]),
     steps: jsonb("steps").$type<string[]>().notNull().default([]),

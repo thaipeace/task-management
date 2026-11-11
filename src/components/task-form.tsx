@@ -149,6 +149,15 @@ export function TaskForm({ action, task: t, sprints, users, defaultSprint, cance
             />
           </div>
           <div>
+            <label className="label">Bản release</label>
+            <input
+              name="releasedVersion"
+              defaultValue={t?.releasedVersion ?? ""}
+              placeholder="2.45.8-rc1 – gắn khi tạo nhánh release"
+              className="input font-mono text-xs"
+            />
+          </div>
+          <div>
             <label className="label">Nguồn</label>
             <input name="source" defaultValue={t?.source ?? ""} className="input" />
           </div>

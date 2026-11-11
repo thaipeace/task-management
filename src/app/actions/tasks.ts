@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { comments, goals, projects, records, sprints, taskLogs, tasks } from "@/db/schema";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { nextKey } from "@/lib/backlog";
-import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, STATUSES, TYPES, today } from "@/lib/constants";
+import { AREAS, ESTIMATES, PRIORITIES, RECORD_KINDS, RELEASE_VERSION, RELEASE_VERSION_HINT, STATUSES, TYPES, today } from "@/lib/constants";
 import { normalizeKey } from "@/lib/task-keys";
 import {
   TaskRuleError,
@@ -81,6 +81,7 @@ const taskForm = z.object({
   relTasks: ids,
   relDocs: lines,
   branch: nullable,
+  releasedVersion: nullable.refine((v) => v == null || RELEASE_VERSION.test(v), `Bản release ${RELEASE_VERSION_HINT}`),
   source: z.string().default(""),
 });
 
@@ -108,6 +109,7 @@ function parseTaskForm(form: FormData) {
       dependsOn: d.dependsOn,
       related: { issue: d.relIssue, pr: d.relPr, viec: d.relTasks, tai_lieu: d.relDocs },
       branch: d.branch,
+      releasedVersion: d.releasedVersion,
       source: d.source,
     },
   } as const;

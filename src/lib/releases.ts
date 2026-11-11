@@ -1,6 +1,8 @@
-import { and, eq, max } from "drizzle-orm";
+import { and, asc, eq, isNotNull, max } from "drizzle-orm";
 import { db } from "@/db";
-import { devReleases } from "@/db/schema";
+import { devReleases, tasks } from "@/db/schema";
+import { DONE_STATUSES } from "./constants";
+import { TaskRuleError, resolveTaskKey, updateTaskCore, type Actor } from "./task-service";
 
 export const MAIN_VERSION = /^\d+\.\d+\.\d+$/;
 
@@ -54,6 +56,37 @@ export async function saveDevRelease(projectId: number, mainVersion: string, rc:
     if (inserted.length) return { rc: next, created: true };
   }
   throw new Error("Không cấp được số rc, hãy thử lại");
+}
+
+// Việc đã gắn bản release, gom theo version
+export async function tasksByVersion(projectId: number) {
+  const rows = await db
+    .select({ key: tasks.key, title: tasks.title, status: tasks.status, version: tasks.releasedVersion })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, projectId), isNotNull(tasks.releasedVersion)))
+    .orderBy(asc(tasks.seq), asc(tasks.key));
+  const map = new Map<string, typeof rows>();
+  for (const r of rows) map.set(r.version!, [...(map.get(r.version!) ?? []), r]);
+  return map;
+}
+
+// Kiểm hết trước khi gắn: việc phải có, cùng dự án, đang Xong trên Dev (hoặc đã Released)
+export async function checkReleaseTasks(projectId: number, raw: string[]) {
+  const keys: string[] = [];
+  const bad: string[] = [];
+  for (const r of raw) {
+    const key = await resolveTaskKey(r);
+    const [t] = key ? await db.select({ projectId: tasks.projectId, status: tasks.status }).from(tasks).where(eq(tasks.key, key)) : [];
+    if (!key || !t || t.projectId !== projectId) bad.push(`${r} (không có trong dự án)`);
+    else if (!DONE_STATUSES.includes(t.status)) bad.push(`${key} (chưa xong trên Dev)`);
+    else if (!keys.includes(key)) keys.push(key);
+  }
+  if (bad.length) throw new TaskRuleError(`Không gắn được bản release: ${bad.join(", ")}`);
+  return keys;
+}
+
+export async function tagReleaseTasks(keys: string[], version: string, actor: Actor) {
+  for (const key of keys) await updateTaskCore(key, { releasedVersion: version }, actor);
 }
 
 export function releaseApi(r: typeof devReleases.$inferSelect, projectCode: string) {

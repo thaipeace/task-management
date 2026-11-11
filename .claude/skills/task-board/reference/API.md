@@ -83,7 +83,7 @@ Gốc: `$TM_API_URL/api/v1`. Body và kết quả đều là JSON. Khi lỗi, AP
 | GET | `/goals` | Mục tiêu kèm tiến độ tính đến hôm nay (`?du_an=SIA`). Chỉ đọc; mục tiêu đặt trên web |
 | GET | `/weekly` | Số liệu báo cáo tuần so với mục tiêu, kèm `ban_nhap` (Markdown) và `bao_cao` (bản đã viết hoặc `null`). `?du_an=SIA&tuan=YYYY-MM-DD` (ngày bất kỳ trong tuần; tuần bắt đầu thứ Hai; không gửi thì là tuần này). `cach_tinh` giải thích công thức |
 | GET | `/releases` | Các đợt Dev release, mới nhất trước. `?du_an=SIA&main=2.45.0` |
-| PUT | `/releases` | `{ "du_an": "SIA", "main": "2.45.0", "rc"?: 2, "noi_dung": "Markdown" }` → không gửi `rc` thì tạo đợt mới với số kế tiếp (`2.45.0-rc1`, `-rc2`…); gửi `rc` thì ghi đè đợt đó. Trả `phien_ban`, `rc`, `tao_moi` |
+| PUT | `/releases` | `{ "du_an": "SIA", "main": "2.45.0", "rc"?: 2, "noi_dung": "Markdown", "viec"?: ["SIA-003"] }` → `viec`: gắn version đợt này vào các việc (phải đang Xong trên Dev, sai một việc thì từ chối cả lệnh). Không gửi `rc` thì tạo đợt mới với số kế tiếp (`2.45.0-rc1`, `-rc2`…); gửi `rc` thì ghi đè đợt đó. Trả `phien_ban`, `rc`, `tao_moi`, `viec_da_gan` |
 | PUT | `/weekly` | `{ "du_an": "SIA", "tuan"?: "YYYY-MM-DD", "noi_dung": "Markdown" }` → ghi hoặc ghi đè báo cáo tuần; lưu kèm số liệu lúc ghi |
 | POST | `/tasks/{id}/logs` | `{ "ghi": "…" }` → thêm một dòng `nhat_ky` |
 
@@ -127,6 +127,7 @@ Kết quả có dạng `{ "so_luong": n, "viec": [...] }`.
 | `uu_tien` | enum | `P0` \| `P1` \| `P2` \| `P3`. Mặc định `P2` |
 | `trang_thai` | enum | `moi` \| `san-sang` \| `dang-lam` \| `cho-duyet` \| `dang-kiem-tra` (đang kiểm tra) \| `xong` (xong trên dev) \| `released` (đã lên production) \| `huy`. Mặc định `moi` |
 | `uoc_luong` | enum \| null | `S` \| `M` \| `L` |
+| `phien_ban` | string \| null | Bản release đầu tiên có việc, vd. `2.45.8-rc1` (gắn qua `PUT /releases` với `viec`) |
 | `mo_ta`, `rui_ro`, `nguon` | string | |
 | `bang_chung`, `viec_can_lam`, `tieu_chi_xong`, `kiem_thu`, `phu_thuoc` | string[] | |
 | `can_phe_duyet` | `{ ai, ly_do }` \| null | |

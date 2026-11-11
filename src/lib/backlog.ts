@@ -28,7 +28,7 @@ const TASK_FIELDS = [
   "id", "tieu_de", "mang", "loai", "dot", "uu_tien", "trang_thai", "uoc_luong", "mo_ta",
   "bang_chung", "viec_can_lam", "tieu_chi_xong", "kiem_thu", "rui_ro", "can_phe_duyet",
   "phu_thuoc", "lien_quan", "nhanh_goi_y", "nguon", "tao_luc", "cap_nhat_luc", "nhat_ky",
-  "nguoi_lam", "khoa_ngoai", "viec_cha", "thu_tu_con",
+  "nguoi_lam", "khoa_ngoai", "viec_cha", "thu_tu_con", "phien_ban",
 ];
 
 const strList = z
@@ -85,6 +85,7 @@ const taskSchema = z
       .transform((v) => v ?? []),
     nguoi_lam: optStr,
     khoa_ngoai: optStr,
+    phien_ban: optStr,
     viec_cha: optStr,
     thu_tu_con: z.number().nullish(),
   })
@@ -270,6 +271,7 @@ export async function importBacklog(
         branch: t.nhanh_goi_y,
         source: t.nguon,
         ...(t.khoa_ngoai ? { externalKey: t.khoa_ngoai } : {}),
+        ...(t.phien_ban ? { releasedVersion: t.phien_ban } : {}),
         ...(t.thu_tu_con != null ? { subOrder: t.thu_tu_con } : {}),
         createdOn: t.tao_luc ?? date,
         updatedOn: t.cap_nhat_luc ?? t.tao_luc ?? date,
@@ -435,6 +437,7 @@ export function toBacklogTask(
     nhat_ky: logs,
     ...(assigneeEmail ? { nguoi_lam: assigneeEmail } : {}),
     ...(t.externalKey ? { khoa_ngoai: t.externalKey } : {}),
+    ...(t.releasedVersion ? { phien_ban: t.releasedVersion } : {}),
     ...(t.parentKey ? { viec_cha: t.parentKey, thu_tu_con: t.subOrder } : {}),
     ...t.extra,
   };

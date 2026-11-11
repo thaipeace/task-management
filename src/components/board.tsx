@@ -225,6 +225,11 @@ function Card({
         <span className="text-xs font-semibold text-slate-500">{t.key}</span>
         <AreaBadge area={t.area} />
         <span className="ml-auto flex items-center gap-1.5">
+          {t.releasedVersion && (
+            <span title="Bản release" className="rounded bg-emerald-50 px-1 font-mono text-[10px] text-emerald-800 ring-1 ring-emerald-200">
+              {t.releasedVersion}
+            </span>
+          )}
           {t.estimate && (
             <span className="rounded-full bg-slate-200 px-1.5 text-[11px] font-semibold text-slate-600">
               {t.estimate}

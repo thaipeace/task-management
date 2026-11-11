@@ -68,6 +68,10 @@ export const STATUSES = [
   },
 ] as const;
 
+// Version bản release gắn vào việc: 2.45.8-rc1, 2.45.8-r1, 2.46.0
+export const RELEASE_VERSION = /^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/;
+export const RELEASE_VERSION_HINT = "dạng 2.45.8-rc1";
+
 // Đã làm xong: xong trên dev hoặc đã release
 export const DONE_STATUSES = ["xong", "released"];
 export const isDone = (status: string) => DONE_STATUSES.includes(status);

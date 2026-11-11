@@ -81,6 +81,7 @@ export async function listTasks(projectId: number, f: TaskFilters, meId: number)
       priority: tasks.priority,
       status: tasks.status,
       estimate: tasks.estimate,
+      releasedVersion: tasks.releasedVersion,
       position: tasks.position,
       updatedOn: tasks.updatedOn,
       needsApproval: sql<boolean>`${tasks.approval} is not null and ${tasks.approval} <> 'null'::jsonb`,

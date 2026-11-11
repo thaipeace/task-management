@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "released_version" text;

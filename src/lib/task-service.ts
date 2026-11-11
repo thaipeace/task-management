@@ -119,6 +119,9 @@ export async function updateTaskCore(key: string, input: Partial<TaskData>, acto
   if (patch.assigneeId !== undefined && patch.assigneeId !== old.assigneeId) {
     logs.push(`Giao cho: ${await userName(patch.assigneeId)} (${actor.name})`);
   }
+  if (patch.releasedVersion !== undefined && patch.releasedVersion !== old.releasedVersion) {
+    logs.push(patch.releasedVersion ? `Bản release: ${patch.releasedVersion} (${actor.name})` : `Bỏ bản release ${old.releasedVersion} (${actor.name})`);
+  }
   if (patch.parentKey !== undefined && patch.parentKey !== old.parentKey) {
     if (patch.parentKey) {
       await checkParent(patch.parentKey, old.projectId, key);
