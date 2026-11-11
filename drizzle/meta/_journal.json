@@ -57,6 +57,13 @@
       "when": 1794369343635,
       "tag": "0007_task_released_version",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794382395752,
+      "tag": "0008_release_notes",
+      "breakpoints": true
     }
   ]
 }

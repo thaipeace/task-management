@@ -283,7 +283,10 @@ export const devReleases = pgTable(
     projectId: projectRef(),
     mainVersion: text("main_version").notNull(),
     rc: integer("rc").notNull(),
+    // phần 1 – nhận xét chung (business, tính năng nổi bật)
     body: text("body").notNull(),
+    // phần 3 – ghi chú thêm (kỹ thuật, việc cần làm khi triển khai, quay lại…)
+    notes: text("notes").notNull().default(""),
     authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

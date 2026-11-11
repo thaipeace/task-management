@@ -1,0 +1,1 @@
+ALTER TABLE "dev_releases" ADD COLUMN "notes" text DEFAULT '' NOT NULL;

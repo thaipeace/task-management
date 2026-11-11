@@ -31,7 +31,9 @@ const HELP = `Dùng:
   tm goals [--du_an=SIA]                 mục tiêu kèm tiến độ, đánh giá nhịp
   tm weekly [--du_an=SIA] [--tuan=2026-11-07]   số liệu báo cáo tuần so với mục tiêu + bản nháp (+ bản đã viết)
   tm releases [--du_an=SIA] [--main=2.45.0]     các đợt Dev release, mới nhất trước
-  tm release-save --main=2.45.0 [--rc=2] [--viec=SIA-003 --viec=…] [--du_an=SIA] "-"   ghi đợt Dev release (không có --rc: tự lấy rc kế tiếp; có --rc: ghi đè); --viec gắn bản này vào việc
+  tm release-save --main=2.45.0 [--rc=2] --noi_dung_file=nhan-xet.md [--ghi_chu_file=ghi-chu.md] [--viec=SIA-003 --viec=…] [--du_an=SIA]
+                                               ghi đợt Dev release: noi_dung = nhận xét chung, ghi_chu = ghi chú thêm (không có --rc: tạo đợt mới, rc kế tiếp;
+                                               có --rc: chỉ sửa phần được gửi); --viec gắn bản này vào việc
   tm weekly-save [--du_an=SIA] [--tuan=…] "-"   ghi báo cáo tuần (Markdown, "-" = stdin; hoặc --noi_dung_file=bc.md)
   tm comment <ID> "nội dung"             nội dung "-" = đọc từ stdin (Markdown nhiều dòng)
   tm comment-edit <ID> <id bình luận> "nội dung mới"   chỉ sửa được bình luận của chính mình; id lấy từ get
@@ -167,7 +169,7 @@ switch (cmd) {
   case "release-save": {
     const body = await bodyFromFlags(flags);
     if (id) body.noi_dung = readText(id);
-    if (!body.main || !body.noi_dung) throw new Error('Dùng: tm release-save --main=2.45.0 [--rc=2] "-"  (nội dung Markdown từ stdin)');
+    if (!body.main) throw new Error("Dùng: tm release-save --main=2.45.0 [--rc=2] --noi_dung_file=nhan-xet.md [--ghi_chu_file=ghi-chu.md] [--viec=…]");
     print(await call("PUT", "/releases", body));
     break;
   }

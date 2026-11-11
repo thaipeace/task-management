@@ -18,7 +18,7 @@ export function ReportTabs() {
           key={t.href}
           href={t.href}
           className={`-mb-px border-b-2 px-3 py-2 ${
-            pathname === t.href ? "border-brand font-semibold text-brand" : "border-transparent text-slate-600 hover:text-slate-900"
+            (t.href === "/report" ? pathname === t.href : pathname.startsWith(t.href)) ? "border-brand font-semibold text-brand" : "border-transparent text-slate-600 hover:text-slate-900"
           }`}
         >
           {t.label}

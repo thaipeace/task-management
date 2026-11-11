@@ -147,13 +147,17 @@ Báo cáo tuần so với **mục tiêu** do người đặt trên trang Mục t
 
 ## Dev release
 
-Mỗi đợt release lên Dev là một bản ghi ở tab Dev release trong Báo cáo, đánh số theo version của main: main `2.45.0` thì đợt đầu là `2.45.0-rc1`.
+Mỗi đợt release lên Dev có một trang riêng `/report/releases/<version>` để gửi cho cấp trên, đánh số theo version của main: main `2.45.0` thì đợt đầu là `2.45.0-rc1`. Trang có 3 phần:
+
+- **Nhận xét chung** (`noi_dung`, luôn hiện): người đọc là quản lý, không phải dev. Viết 5–10 dòng: đợt này mang lại gì cho business / người dùng, 3–5 tính năng hoặc thay đổi nổi bật nói bằng lời người dùng, rủi ro hoặc điều cần quyết nếu có. Không liệt kê từng việc, không chi tiết kỹ thuật.
+- **Các việc được release** (thu gọn): hệ thống tự lấy từ việc đã gắn version, không cần viết.
+- **Ghi chú thêm** (`ghi_chu`, thu gọn): chi tiết kỹ thuật, việc phải làm khi triển khai (secret, migration), cách thử, cách quay lại.
 
 1. Lấy version **đang có trên main** từ repo (ví dụ `package.json` của nhánh main). Không tự đoán, không tự tăng version.
 2. Chọn việc vào bản này: việc đang **Xong trên Dev** VÀ có commit trong nhánh release (`git log <nhánh release> --grep=SIA-…`, nhớ cả id cũ như BE-010). Việc Xong trên Dev nhưng không có commit trong nhánh (vào `dev` sau khi cắt nhánh, hoặc việc điều tra / xác minh không có mã) thì **không** gắn – để đợt sau.
-3. Viết nội dung Markdown ngắn: thay đổi chính (kèm mã việc như `SIA-012`), điểm cần kiểm tra, việc phải làm khi triển khai nếu có.
-4. Ghi và gắn version vào việc trong một lệnh: `printf '%s' "$NOI_DUNG" | node .claude/skills/task-board/scripts/tm.mjs release-save --du_an=SIA --main=2.45.0 --viec=SIA-003 --viec=SIA-004 -` (hoặc `--noi_dung_file=rl.md`). Hệ thống tự cấp số rc kế tiếp, trả về `phien_ban` và `viec_da_gan`; mỗi việc có trường `phien_ban` và một dòng nhật ký. Có việc nào sai (không có / chưa xong) thì cả lệnh bị từ chối, không ghi gì.
-5. Chỉ thêm `--rc=N` khi sửa lại đợt `N` đã có; lệnh này ghi đè. Nếu lệnh ghi bị lỗi mạng và không rõ đã lưu chưa, chạy `tm releases --main=…` trước khi ghi lại để tránh tạo trùng đợt. Báo cho người dùng link `/report/releases`.
+3. Viết hai tệp `nhan-xet.md` và `ghi-chu.md` như trên.
+4. Ghi và gắn version vào việc trong một lệnh: `node .claude/skills/task-board/scripts/tm.mjs release-save --du_an=SIA --main=2.45.0 --noi_dung_file=nhan-xet.md --ghi_chu_file=ghi-chu.md --viec=SIA-003 --viec=SIA-004`. Mỗi việc một cờ `--viec` riêng (trong zsh dùng mảng, không ghép chuỗi). Hệ thống tự cấp số rc kế tiếp, trả về `phien_ban`, `duong_dan`, `viec_da_gan`. Có việc nào sai (không có / chưa xong) thì cả lệnh bị từ chối, không ghi gì.
+5. Sửa đợt đã có: thêm `--rc=N`, chỉ gửi phần cần sửa (vd. chỉ `--ghi_chu_file`). Xem nội dung hiện tại bằng `tm releases --main=…`. Nếu lệnh ghi lỗi mạng và không rõ đã lưu chưa, chạy `tm releases --main=…` trước khi ghi lại để tránh tạo trùng đợt. Báo cho người dùng đường dẫn trong `duong_dan`.
 
 ## Khi cần chi tiết
 
