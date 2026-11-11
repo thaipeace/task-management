@@ -208,7 +208,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
               <dt className="text-slate-500">Bản release</dt>
               <dd className="font-mono text-xs">
                 {t.releasedVersion ? (
-                  <Link href={`/report/releases/${t.releasedVersion}`} className="text-brand hover:underline">
+                  <Link href={`/report/releases/${project.code}/${t.releasedVersion}`} className="text-brand hover:underline">
                     {t.releasedVersion}
                   </Link>
                 ) : (

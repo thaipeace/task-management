@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { CopyLink } from "@/components/copy-summary";
 import { ReportTabs } from "@/components/report-tabs";
 import { RichText } from "@/components/rich-text";
 import { AreaBadge, Loading, PageHeader, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { getCurrentProject } from "@/lib/projects";
-import { getDevRelease } from "@/lib/releases";
+import { getProjectByCode } from "@/lib/projects";
+import { getDevRelease, releasePath } from "@/lib/releases";
 
 const DATE = new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" });
 
-export async function generateMetadata({ params }: PageProps<"/report/releases/[version]">): Promise<Metadata> {
-  return { title: `Release ${decodeURIComponent((await params).version)}` };
+export async function generateMetadata({ params }: PageProps<"/report/releases/[project]/[version]">): Promise<Metadata> {
+  const p = await params;
+  return { title: `Release ${decodeURIComponent(p.version)} · ${decodeURIComponent(p.project).toUpperCase()}` };
 }
 
-export default function ReleasePage({ params }: PageProps<"/report/releases/[version]">) {
+export default function ReleasePage({ params }: PageProps<"/report/releases/[project]/[version]">) {
   return (
     <div className="mx-auto max-w-5xl">
       <Suspense fallback={<Loading />}>
@@ -26,9 +27,15 @@ export default function ReleasePage({ params }: PageProps<"/report/releases/[ver
   );
 }
 
-async function ReleaseContent({ params }: Pick<PageProps<"/report/releases/[version]">, "params">) {
-  const [, project] = await Promise.all([requireUser(), getCurrentProject()]);
-  const version = decodeURIComponent((await params).version);
+// Dự án lấy từ đường dẫn, không theo dự án đang chọn – link gửi đi mở đúng bản ở mọi máy
+async function ReleaseContent({ params }: Pick<PageProps<"/report/releases/[project]/[version]">, "params">) {
+  await requireUser();
+  const p = await params;
+  const code = decodeURIComponent(p.project);
+  const version = decodeURIComponent(p.version);
+  const project = await getProjectByCode(code);
+  if (!project) notFound();
+  if (project.code !== code) redirect(releasePath(project.code, version));
   const data = await getDevRelease(project.id, version);
   if (!data) notFound();
   const { release, tasks } = data;
@@ -46,8 +53,8 @@ async function ReleaseContent({ params }: Pick<PageProps<"/report/releases/[vers
       />
       <ReportTabs />
       <div className="mb-3 text-sm">
-        <Link href="/report/releases" className="text-brand hover:underline">
-          ‹ Tất cả release
+        <Link href={`/report/releases/${project.code}`} className="text-brand hover:underline">
+          ‹ Tất cả release của {project.code}
         </Link>
       </div>
 

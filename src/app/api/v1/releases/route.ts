@@ -1,6 +1,7 @@
 import { ApiError, json, readJson, resolveProject, withApiAuth } from "@/lib/api";
 import {
   MAIN_VERSION,
+  releasePath,
   checkReleaseTasks,
   listDevReleases,
   releaseApi,
@@ -64,7 +65,7 @@ export const PUT = withApiAuth(async (req, me) => {
     phien_ban,
     main: version,
     rc: saved.rc,
-    duong_dan: `/report/releases/${phien_ban}`,
+    duong_dan: releasePath(project.code, phien_ban),
     tao_moi: saved.created,
     viec_da_gan: keys,
     da_luu: true,
