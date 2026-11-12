@@ -148,7 +148,7 @@ Báo cáo tuần so với **mục tiêu** do người đặt trên trang Mục t
 
 ## Dev release
 
-Mỗi đợt release lên Dev có một trang riêng `/report/releases/<mã dự án>/<version>` (vd. `/report/releases/SIA/2.45.8-rc1`) để gửi cho cấp trên, đánh số theo version của main: main `2.45.0` thì đợt đầu là `2.45.0-rc1`. Trang có 3 phần:
+Mỗi đợt release lên Dev có một trang riêng `/report/releases/<mã dự án>/<version>` (vd. `/report/releases/SIA/2.45.8-rc1`) để gửi cho cấp trên, đánh số theo version của main: main `2.45.0` thì đợt đầu là `2.45.0-rc1`. Khi đợt đã release xong, admin bấm **Duyệt** ở tab Dev release: việc của đợt chuyển Xong trên Dev → Released, `da_duyet_luc` có giá trị. Agent không tự chuyển việc sang `released`. Trang có 3 phần:
 
 - **Nhận xét chung** (`noi_dung`, luôn hiện): người đọc là quản lý, không phải dev. Viết 5–10 dòng: đợt này mang lại gì cho business / người dùng, 3–5 tính năng hoặc thay đổi nổi bật nói bằng lời người dùng, rủi ro hoặc điều cần quyết nếu có. Không liệt kê từng việc, không chi tiết kỹ thuật.
 - **Các việc được release** (thu gọn): hệ thống tự lấy từ việc đã gắn version, không cần viết.

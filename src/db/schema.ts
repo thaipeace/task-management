@@ -288,6 +288,9 @@ export const devReleases = pgTable(
     // phần 3 – ghi chú thêm (kỹ thuật, việc cần làm khi triển khai, quay lại…)
     notes: text("notes").notNull().default(""),
     authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+    // bấm Duyệt: đợt đã release xong, việc trong đợt chuyển Xong trên Dev → Released
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    approvedById: integer("approved_by_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
+import { ApproveRelease } from "@/components/approve-release";
 import { ReportTabs } from "@/components/report-tabs";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -32,7 +33,7 @@ export default function ReleasesPage({ params }: PageProps<"/report/releases/[pr
 }
 
 async function ReleasesContent({ params }: Pick<PageProps<"/report/releases/[project]">, "params">) {
-  await requireUser();
+  const me = await requireUser();
   const code = decodeURIComponent((await params).project);
   const project = await getProjectByCode(code);
   if (!project) {
@@ -48,9 +49,10 @@ async function ReleasesContent({ params }: Pick<PageProps<"/report/releases/[pro
   const rows = [
     ...releases.map((r) => {
       const version = releaseVersion(r.mainVersion, r.rc);
-      return { version, date: DATE.format(r.createdAt), teaser: teaser(r.body), count: counts.get(version) ?? 0 };
+      const c = counts.get(version) ?? { total: 0, pending: 0 };
+      return { version, date: DATE.format(r.createdAt), teaser: teaser(r.body), ...c, approved: r.approvedAt };
     }),
-    ...orphans.map((v) => ({ version: v, date: "", teaser: "Chưa có nhận xét", count: counts.get(v) ?? 0 })),
+    ...orphans.map((v) => ({ version: v, date: "", teaser: "Chưa có nhận xét", ...counts.get(v)!, approved: null })),
   ];
 
   return (
@@ -62,14 +64,21 @@ async function ReleasesContent({ params }: Pick<PageProps<"/report/releases/[pro
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
           {rows.map((r) => (
-            <li key={r.version}>
-              <Link href={releasePath(project.code, r.version)} className="flex items-baseline gap-3 px-4 py-3 hover:bg-slate-50">
+            <li key={r.version} className="flex items-center gap-3 pr-4 hover:bg-slate-50">
+              <Link href={releasePath(project.code, r.version)} className="flex min-w-0 flex-1 items-baseline gap-3 py-3 pl-4">
                 <span className="w-28 shrink-0 font-mono text-sm font-semibold text-brand">{r.version}</span>
                 <span className="min-w-0 flex-1 truncate text-sm text-slate-700">{r.teaser}</span>
                 <span className="shrink-0 text-xs text-slate-500">
-                  {r.count} việc{r.date && ` · ${r.date}`}
+                  {r.total} việc{r.date && ` · ${r.date}`}
                 </span>
               </Link>
+              {r.pending > 0 && me.role === "admin" ? (
+                <ApproveRelease project={project.code} version={r.version} pending={r.pending} />
+              ) : r.approved ? (
+                <span className="shrink-0 rounded bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white" title={DATE.format(r.approved)}>
+                  Đã duyệt
+                </span>
+              ) : null}
             </li>
           ))}
         </ul>

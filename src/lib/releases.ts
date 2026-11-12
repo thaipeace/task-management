@@ -51,15 +51,39 @@ export async function getDevRelease(projectId: number, version: string) {
   return { release: release ?? null, tasks: items };
 }
 
-// Số việc đã gắn theo từng version
+// Số việc đã gắn theo từng version; pending = số việc còn ở Xong trên Dev (chờ duyệt release)
 export async function taskCountByVersion(projectId: number) {
   const rows = await db
-    .select({ version: tasks.releasedVersion })
+    .select({ version: tasks.releasedVersion, status: tasks.status })
     .from(tasks)
     .where(and(eq(tasks.projectId, projectId), isNotNull(tasks.releasedVersion)));
-  const map = new Map<string, number>();
-  for (const r of rows) map.set(r.version!, (map.get(r.version!) ?? 0) + 1);
+  const map = new Map<string, { total: number; pending: number }>();
+  for (const r of rows) {
+    const c = map.get(r.version!) ?? { total: 0, pending: 0 };
+    c.total++;
+    if (r.status === "xong") c.pending++;
+    map.set(r.version!, c);
+  }
   return map;
+}
+
+// Duyệt đợt: đã release xong – việc gắn version này đang Xong trên Dev chuyển sang Released (có nhật ký),
+// cột Xong trên Dev chỉ còn việc của đợt sau. Ghi người / lúc duyệt nếu đợt có trang.
+export async function approveDevRelease(projectId: number, version: string, actor: Actor) {
+  const pending = await db
+    .select({ key: tasks.key })
+    .from(tasks)
+    .where(and(eq(tasks.projectId, projectId), eq(tasks.releasedVersion, version), eq(tasks.status, "xong")))
+    .orderBy(asc(tasks.seq), asc(tasks.key));
+  for (const t of pending) await updateTaskCore(t.key, { status: "released" }, actor);
+  const m = RC_VERSION.exec(version);
+  if (m) {
+    await db
+      .update(devReleases)
+      .set({ approvedAt: new Date(), approvedById: actor.id })
+      .where(and(eq(devReleases.projectId, projectId), eq(devReleases.mainVersion, m[1]), eq(devReleases.rc, Number(m[2]))));
+  }
+  return pending.map((t) => t.key);
 }
 
 async function nextRc(projectId: number, mainVersion: string) {
@@ -130,6 +154,7 @@ export function releaseApi(r: DevRelease, projectCode: string, taskKeys: string[
     noi_dung: r.body,
     ghi_chu: r.notes,
     viec: taskKeys,
+    da_duyet_luc: r.approvedAt,
     tao_luc: r.createdAt,
     cap_nhat_luc: r.updatedAt,
   };
