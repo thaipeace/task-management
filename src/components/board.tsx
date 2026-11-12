@@ -121,6 +121,9 @@ export function Board({ tasks: initial, users }: { tasks: TaskRow[]; users: Pick
                 <span className={`rounded-full px-2 text-xs font-semibold ${col.count}`}>{items.length}</span>
               </div>
               <div className="flex min-h-24 flex-1 flex-col gap-2">
+                {col.value === "released" && !items.length && (
+                  <p className="px-1.5 text-xs text-slate-500">Việc đã release không hiện ở đây – xem ở Backlog hoặc tab Dev release.</p>
+                )}
                 {items.map((t, i) => (
                   <div key={t.key}>
                     {isTarget && drop.index === i && dragKey !== t.key && <DropLine />}
