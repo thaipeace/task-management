@@ -31,7 +31,7 @@ export default function BoardPage({ searchParams }: PageProps<"/board">) {
 
 async function BoardContent({ searchParams }: Pick<PageProps<"/board">, "searchParams">) {
   const [me, project] = await Promise.all([requireUser(), getCurrentProject()]);
-  const filters = readFilters(await searchParams);
+  const filters = readFilters(await searchParams, false);
   const [tasks, sprints, users] = await Promise.all([
     listTasks(project.id, filters, me.id),
     listSprints(project.id),
@@ -39,7 +39,7 @@ async function BoardContent({ searchParams }: Pick<PageProps<"/board">, "searchP
   ]);
   return (
     <>
-      <FilterBar filters={filters} sprints={sprints} users={users} />
+      <FilterBar filters={filters} sprints={sprints} users={users} subDefault={false} />
       <Board tasks={tasks} users={users} />
     </>
   );

@@ -9,12 +9,13 @@ type Props = {
   filters: TaskFilters;
   sprints: { code: string }[];
   users: { id: number; name: string }[];
+  subDefault?: boolean; // "Hiện việc con" khi URL không có ?sub
 };
 
 type ListKey = Exclude<keyof TaskFilters, "q" | "sub">;
 type Option = { value: string; label: string; short?: string };
 
-export function FilterBar({ filters: current, sprints, users }: Props) {
+export function FilterBar({ filters: current, sprints, users, subDefault = true }: Props) {
   const router = useRouter();
   // hiện lựa chọn ngay khi bấm; bấm liên tiếp cộng dồn thay vì ghi đè nhau khi URL chưa kịp đổi
   const [filters, setFilters] = useOptimistic(current);
@@ -27,7 +28,7 @@ export function FilterBar({ filters: current, sprints, users }: Props) {
     const sp = new URLSearchParams();
     for (const [k, v] of Object.entries(next)) {
       if (k === "sub") {
-        if (v === false) sp.set("sub", "0");
+        if (v !== subDefault) sp.set("sub", v ? "1" : "0");
         continue;
       }
       const value = Array.isArray(v) ? v.join(",") : typeof v === "string" ? v : "";
@@ -59,7 +60,7 @@ export function FilterBar({ filters: current, sprints, users }: Props) {
   );
 
   const active =
-    !!filters.q || !filters.sub || (["sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
+    !!filters.q || filters.sub !== subDefault || (["sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -99,7 +100,7 @@ export function FilterBar({ filters: current, sprints, users }: Props) {
           onClick={() => {
             setQ("");
             startTransition(() => {
-              setFilters({ sprint: [], area: [], priority: [], type: [], assignee: [], sub: true });
+              setFilters({ sprint: [], area: [], priority: [], type: [], assignee: [], sub: subDefault });
               router.replace(pathname);
             });
           }}

@@ -12,12 +12,13 @@ export type TaskFilters = {
   priority: string[];
   type: string[];
   assignee: string[]; // id | "me" | "none"
-  sub: boolean; // hiện việc con (mặc định có; ?sub=0 để ẩn)
+  sub: boolean; // hiện việc con (?sub=1 / ?sub=0; không có thì theo mặc định của trang)
 };
 
 export const LIST_FILTER_KEYS = ["sprint", "area", "priority", "type", "assignee"] as const;
 
-export function readFilters(sp: Record<string, string | string[] | undefined>): TaskFilters {
+// subDefault: hiện việc con khi URL không có ?sub (Bảng mặc định ẩn, Backlog mặc định hiện)
+export function readFilters(sp: Record<string, string | string[] | undefined>, subDefault = true): TaskFilters {
   const list = (k: string) => {
     const v = sp[k];
     return [...new Set((Array.isArray(v) ? v : [v ?? ""]).flatMap((x) => x.split(",")).filter(Boolean))];
@@ -30,7 +31,7 @@ export function readFilters(sp: Record<string, string | string[] | undefined>): 
     priority: list("priority"),
     type: list("type"),
     assignee: list("assignee"),
-    sub: sp.sub !== "0",
+    sub: sp.sub === "1" ? true : sp.sub === "0" ? false : subDefault,
   };
 }
 
