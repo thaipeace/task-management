@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, eq, inArray, isNotNull, like, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNotNull, like, or } from "drizzle-orm";
 import { db } from "@/db";
-import { records, sprints, taskLogs, tasks, users } from "@/db/schema";
+import { comments, records, sprints, taskLogs, tasks, users } from "@/db/schema";
 import { AREAS, PRIORITIES, isDone, labelOf, today } from "./constants";
 import { stripAreaTag } from "./task-keys";
 
@@ -27,6 +27,8 @@ export type ReportTask = {
   needsApproval: { ai: string; ly_do: string } | null;
   parentKey: string | null;
 };
+
+const DAY = 86_400_000;
 
 export async function getReport(projectId: number) {
   const [taskRows, subRows, sprintRows, doneLogs, decisions, riskCount, team] = await Promise.all([
@@ -192,7 +194,111 @@ export async function getReport(projectId: number) {
     approvals: openTasks.filter((t) => t.needsApproval),
     decisions: decisionList,
     workload: workload(list, team.map((u) => u.name), decisionList, openTasks),
+    lead: await leadership(projectId, taskRows, list),
   };
+}
+
+// ---- Công việc dẫn dắt: tạo, chuẩn hoá, giao, kiểm, chốt, hướng dẫn trên việc của người khác ----
+// Bảng khối lượng chỉ thấy việc được giao. Người điều phối làm phần lớn việc trên việc của người khác –
+// đọc từ nhật ký và bình luận 14 ngày (gồm cả thao tác agent làm bằng token của người đó).
+
+export const LEAD_KINDS = [
+  { key: "plan", label: "Lập & chia việc", hint: "tạo việc, tách việc con, gom nhóm" },
+  { key: "normalize", label: "Chuẩn hoá theo nguồn", hint: "sửa nội dung, đối chiếu, cập nhật khi nguồn đổi" },
+  { key: "assign", label: "Giao & điều phối", hint: "giao người, chuyển trạng thái việc của người khác" },
+  { key: "verify", label: "Kiểm tra & xác nhận", hint: "review, kiểm trên dev / production, xác nhận xong, gắn bản release" },
+  { key: "decide", label: "Quyết định & chốt", hint: "chốt phương án, đổi ưu tiên, thương lượng, duyệt" },
+  { key: "guide", label: "Hướng dẫn & trao đổi", hint: "bình luận, ghi chú cách làm trên việc người khác" },
+] as const;
+export type LeadKind = (typeof LEAD_KINDS)[number]["key"];
+
+const DONE_LABELS = ["Xong", "Xong trên Dev", "Released", "Huỷ"];
+
+// Ghi chú tự do / bình luận: phân loại theo từ khoá (không dấu). Agent nên mở đầu bằng [Quyết định], [Kiểm tra]…
+function noteKind(text: string): LeadKind {
+  const t = fold(text);
+  if (/quyet|chot|thuong luong|dong y|phe duyet|\b(ha|nang) p[0-3]/.test(t)) return "decide";
+  if (/kiem|review|doi chieu lai|xac nhan|verify|do lai|do sau|test|chay lai|\blen \S+\.\w|production|pr #|gop vao|merge/.test(t)) return "verify";
+  if (/chuan hoa|quy uoc|doi chieu|cap nhat theo|theo nguon|tach /.test(t)) return "normalize";
+  if (/giao |chuyen cho|phan cong/.test(t)) return "assign";
+  return "guide";
+}
+
+function logKind(text: string, ownTask: boolean): LeadKind | null {
+  if (/^(Tạo việc|Thêm việc con|Thành việc con|Tách khỏi việc cha|Đổi id)/.test(text)) return "plan";
+  if (ownTask) return null; // việc của chính mình: đã tính ở bảng khối lượng
+  if (text.startsWith("Giao cho")) return "assign";
+  if (/^(Bản release|Bỏ bản release)/.test(text)) return "verify";
+  if (text.startsWith("Sửa: ")) return /(^|, )ưu tiên /.test(text.slice(5)) ? "decide" : "normalize";
+  if (text.startsWith("Trạng thái:")) {
+    const to = text.split("→")[1]?.replace(/\(.*$/, "").trim() ?? "";
+    return DONE_LABELS.includes(to) ? "verify" : "assign";
+  }
+  return noteKind(text);
+}
+
+async function leadership(
+  projectId: number,
+  taskRows: { key: string; assignee: string | null }[],
+  list: ReportTask[],
+) {
+  const sinceAt = new Date(Date.now() - 14 * DAY);
+  const since = sinceAt.toISOString().slice(0, 10);
+  const inProject = and(eq(tasks.projectId, projectId), gte(taskLogs.createdAt, sinceAt));
+  const [logs, notes] = await Promise.all([
+    db
+      .select({ key: taskLogs.taskKey, text: taskLogs.text, who: users.name })
+      .from(taskLogs)
+      .innerJoin(tasks, eq(tasks.key, taskLogs.taskKey))
+      .innerJoin(users, eq(users.id, taskLogs.userId))
+      .where(inProject),
+    db
+      .select({ key: comments.taskKey, text: comments.body, who: users.name })
+      .from(comments)
+      .innerJoin(tasks, eq(tasks.key, comments.taskKey))
+      .innerJoin(users, eq(users.id, comments.userId))
+      .where(and(eq(tasks.projectId, projectId), gte(comments.createdAt, sinceAt))),
+  ]);
+  const assigneeOf = new Map(taskRows.map((t) => [t.key, t.assignee]));
+
+  type Acc = { kinds: Map<LeadKind, { tasks: Set<string>; actions: number }>; touched: Set<string>; others: Set<string>; signed: Set<string> };
+  const people = new Map<string, Acc>();
+  const add = (who: string, key: string, kind: LeadKind | null) => {
+    if (!kind) return;
+    const p = people.get(who) ?? { kinds: new Map(), touched: new Set(), others: new Set(), signed: new Set() };
+    people.set(who, p);
+    const k = p.kinds.get(kind) ?? { tasks: new Set(), actions: 0 };
+    p.kinds.set(kind, k);
+    k.tasks.add(key);
+    k.actions++;
+    p.touched.add(key);
+    const owner = assigneeOf.get(key);
+    if (owner && owner !== who) p.others.add(key);
+    if (kind === "verify" || kind === "decide") p.signed.add(key);
+  };
+  for (const l of logs) add(l.who, l.key, logKind(l.text, assigneeOf.get(l.key) === l.who));
+  for (const c of notes) add(c.who, c.key, assigneeOf.get(c.key) === c.who ? null : noteKind(c.text));
+
+  // việc người khác làm xong trong 14 ngày (đơn vị công việc như các bảng khác)
+  const doneByOthers = list.filter((t) => t.assignee && t.doneOn && t.doneOn >= since && t.status !== "huy");
+  const rows = [...people.entries()]
+    .map(([name, p]) => {
+      const othersDone = doneByOthers.filter((t) => t.assignee !== name);
+      return {
+        name,
+        kinds: Object.fromEntries(
+          LEAD_KINDS.map((k) => [k.key, { tasks: p.kinds.get(k.key)?.tasks.size ?? 0, actions: p.kinds.get(k.key)?.actions ?? 0 }]),
+        ) as Record<LeadKind, { tasks: number; actions: number }>,
+        touched: p.touched.size,
+        others: p.others.size,
+        // đòn bẩy: việc người khác làm xong có người này kiểm hoặc chốt
+        signedDone: othersDone.filter((t) => p.signed.has(t.key)).length,
+        othersDone: othersDone.length,
+      };
+    })
+    .filter((r) => r.touched > 0)
+    .sort((a, b) => b.touched - a.touched);
+  return { rows, since };
 }
 
 // ---- Khối lượng theo người: cân theo độ nặng và trách nhiệm, không chỉ đếm việc ----
@@ -227,8 +333,6 @@ function namedIn(text: string, name: string) {
   const n = words(name);
   return t.includes(` ${n.join(" ")} `) || n.some((w) => w.length > 1 && !SURNAMES.has(w) && t.includes(` ${w} `));
 }
-
-const DAY = 86_400_000;
 
 function workload(
   list: ReportTask[],
@@ -368,6 +472,17 @@ export function buildSummary(r: Report, projectName: string): SummarySection[] {
       title: "Cần thêm thông tin",
       intro: "Bị chặn hoặc chờ chốt phương án trước khi làm tiếp.",
       lines: r.blocked.map((t) => line(t, false)),
+    });
+  }
+  if (r.lead.rows.length) {
+    sections.push({
+      title: "Công việc dẫn dắt (14 ngày)",
+      intro: "Phần việc ngoài việc được giao: lập, chuẩn hoá, giao, kiểm tra, chốt, hướng dẫn.",
+      lines: r.lead.rows.map((x) => {
+        const parts = LEAD_KINDS.filter((k) => x.kinds[k.key].tasks).map((k) => `${k.label.toLowerCase()} ${x.kinds[k.key].tasks}`);
+        const lever = x.othersDone ? ` ${x.signedDone}/${x.othersDone} việc người khác làm xong có ${x.name} kiểm hoặc chốt.` : "";
+        return `${x.name}: tác động ${x.touched} việc (${x.others} của người khác) – ${parts.join(", ")}.${lever}`;
+      }),
     });
   }
   const W = r.workload;

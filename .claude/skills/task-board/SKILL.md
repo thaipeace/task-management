@@ -75,6 +75,8 @@ node .claude/skills/task-board/scripts/tm.mjs comment SIA-001 "bình luận"
 node .claude/skills/task-board/scripts/tm.mjs comment-edit SIA-001 42 "nội dung mới"   # 42 = binh_luan[].id trong get
 ```
 
+Nhật ký / bình luận trên việc của người khác được tính vào **Công việc dẫn dắt** ở trang Báo cáo. Hãy mở đầu bằng một nhãn để xếp đúng loại: `[Quyết định]` / `[Thương lượng]` (chốt phương án, đổi ưu tiên, bàn với cấp trên), `[Kiểm tra]` (review, kiểm trên dev / production, xác nhận), `[Chuẩn hoá]` (đối chiếu, cập nhật theo nguồn đổi), `[Hướng dẫn]` (chỉ cách làm). Không có nhãn thì hệ thống đoán theo từ khoá.
+
 Rủi ro đã chấp nhận (AR) và câu hỏi chờ quyết định (QD) đọc bằng `records` / `record`, ghi bằng `record-create` / `record-update`.
 - QD: `cau_hoi` (bắt buộc), `ai` (ai quyết), `chan_viec` (id việc bị chặn, lặp cờ), `chan_phat_hanh` (true/false), `ghi`, `tra_loi`.
 - AR: `tieu_de` (bắt buộc), `nguon`, `danh_gia`, `xem_lai_khi`, `ghi`.

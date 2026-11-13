@@ -9,7 +9,7 @@ import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { PRIORITIES, STATUSES, today } from "@/lib/constants";
 import { getCurrentProject } from "@/lib/projects";
-import { PROGRESS, buildSummary, fmt, getReport, summaryText, type Report } from "@/lib/report";
+import { LEAD_KINDS, PROGRESS, buildSummary, fmt, getReport, summaryText, type Report } from "@/lib/report";
 
 export const metadata: Metadata = { title: "Báo cáo" };
 
@@ -98,6 +98,7 @@ async function ReportContent() {
           </div>
 
           {r.workload.rows.length > 0 && <Workload w={r.workload} />}
+          {r.lead.rows.length > 0 && <Lead l={r.lead} />}
 
           <section className="card p-4 md:p-6">
             <h2 className="text-lg font-semibold">Tóm tắt cho quản lý</h2>
@@ -221,6 +222,76 @@ function Workload({ w }: { w: Report["workload"] }) {
                 <td colSpan={4} />
               </tr>
             )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+// Công việc dẫn dắt: mỗi ô = số việc (không phải số lượt) người đó tác động theo từng loại, trên việc không giao cho họ
+function Lead({ l }: { l: Report["lead"] }) {
+  const max = Math.max(1, ...l.rows.flatMap((r) => LEAD_KINDS.map((k) => r.kinds[k.key].tasks)));
+  // thang một sắc xanh: càng nhiều việc càng đậm
+  const tone = (n: number) =>
+    !n ? "text-slate-400" : n / max > 0.66 ? "bg-blue-600 text-white" : n / max > 0.33 ? "bg-blue-200 text-blue-950" : "bg-blue-50 text-blue-900";
+  return (
+    <section className="card p-4 md:p-5">
+      <h2 className="font-semibold">Công việc dẫn dắt (14 ngày)</h2>
+      <p className="mb-3 text-xs text-slate-500">
+        Phần việc không nằm trong việc được giao: lập việc, chuẩn hoá, giao, kiểm tra, chốt, hướng dẫn. Mỗi ô là số việc đã tác
+        động (rê chuột xem số lượt), chỉ tính việc giao cho người khác hoặc chưa giao, lấy từ nhật ký và bình luận – gồm cả thao
+        tác agent làm bằng tài khoản của người đó.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[820px] text-sm">
+          <thead>
+            <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
+              <th className="py-2 pr-3 font-medium">Người</th>
+              {LEAD_KINDS.map((k) => (
+                <th key={k.key} className="px-1 py-2 text-center font-medium" title={k.hint}>
+                  {k.label}
+                </th>
+              ))}
+              <th className="py-2 pl-3 text-right font-medium">Việc đã chạm</th>
+              <th className="py-2 pl-3 font-medium">Đòn bẩy</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {l.rows.map((r) => (
+              <tr key={r.name} className="align-middle">
+                <td className="py-2 pr-3 font-medium whitespace-nowrap text-slate-900">{r.name}</td>
+                {LEAD_KINDS.map((k) => {
+                  const c = r.kinds[k.key];
+                  return (
+                    <td key={k.key} className="px-1 py-1.5 text-center">
+                      <span
+                        className={`inline-block min-w-10 rounded px-2 py-1 tabular-nums ${tone(c.tasks)}`}
+                        title={`${r.name} · ${k.label}: ${c.tasks} việc, ${c.actions} lượt`}
+                      >
+                        {c.tasks || "–"}
+                      </span>
+                    </td>
+                  );
+                })}
+                <td className="py-2 pl-3 text-right tabular-nums">
+                  {r.touched}
+                  <span className="block text-xs text-slate-500">{r.others} của người khác</span>
+                </td>
+                <td className="py-2 pl-3 text-xs text-slate-600">
+                  {r.othersDone ? (
+                    <>
+                      <span className="text-sm font-semibold text-slate-900 tabular-nums">
+                        {r.signedDone}/{r.othersDone}
+                      </span>{" "}
+                      việc người khác làm xong có kiểm hoặc chốt ({pct(r.signedDone, r.othersDone)}%)
+                    </>
+                  ) : (
+                    "–"
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

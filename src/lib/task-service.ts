@@ -101,6 +101,43 @@ export async function reorderSubtask(key: string, subOrder: number) {
 }
 
 // Trả về false khi không có việc này. Không chuyển việc sang dự án khác (id mang tiền tố dự án).
+// Trường nội dung: đổi thì ghi một dòng "Sửa: …" – để thấy công chuẩn hoá / cập nhật theo nguồn trong nhật ký
+const CONTENT_FIELDS: [keyof TaskData, string, boolean][] = [
+  // [trường, nhãn, ghi cả giá trị cũ → mới]
+  ["title", "tiêu đề", false],
+  ["description", "mô tả", false],
+  ["priority", "ưu tiên", true],
+  ["sprint", "đợt", true],
+  ["estimate", "ước lượng", true],
+  ["type", "loại", true],
+  ["area", "mảng", true],
+  ["evidence", "bằng chứng", false],
+  ["steps", "việc cần làm", false],
+  ["doneCriteria", "tiêu chí xong", false],
+  ["tests", "kiểm thử", false],
+  ["risk", "rủi ro", false],
+  ["approval", "phê duyệt", false],
+  ["dependsOn", "phụ thuộc", false],
+  ["related", "liên quan", false],
+  ["branch", "nhánh", false],
+  ["source", "nguồn", false],
+  ["externalKey", "khoá ngoài", false],
+];
+
+// rỗng, null, [] coi như nhau – form gửi "" cho trường trống
+const norm = (v: unknown) => (v == null || v === "" || (Array.isArray(v) && !v.length) ? null : JSON.stringify(v));
+
+function contentEdits(old: typeof tasks.$inferSelect, patch: Partial<TaskData>) {
+  const out: string[] = [];
+  for (const [f, label, withValue] of CONTENT_FIELDS) {
+    if (!(f in patch)) continue;
+    const [a, b] = [old[f as keyof typeof old], patch[f]];
+    if (norm(a) === norm(b)) continue;
+    out.push(withValue ? `${label} ${a || "–"} → ${b || "–"}` : label);
+  }
+  return out;
+}
+
 export async function updateTaskCore(key: string, input: Partial<TaskData>, actor: Actor) {
   const patch = { ...input };
   delete patch.projectId;
@@ -122,6 +159,8 @@ export async function updateTaskCore(key: string, input: Partial<TaskData>, acto
   if (patch.releasedVersion !== undefined && patch.releasedVersion !== old.releasedVersion) {
     logs.push(patch.releasedVersion ? `Bản release: ${patch.releasedVersion} (${actor.name})` : `Bỏ bản release ${old.releasedVersion} (${actor.name})`);
   }
+  const edits = contentEdits(old, patch);
+  if (edits.length) logs.push(`Sửa: ${edits.join(", ")} (${actor.name})`);
   if (patch.parentKey !== undefined && patch.parentKey !== old.parentKey) {
     if (patch.parentKey) {
       await checkParent(patch.parentKey, old.projectId, key);
