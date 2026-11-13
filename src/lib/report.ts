@@ -193,18 +193,16 @@ export async function getReport(projectId: number) {
       .sort((a, b) => a.priority.localeCompare(b.priority)),
     approvals: openTasks.filter((t) => t.needsApproval),
     decisions: decisionList,
-    workload: workload(list, team.map((u) => u.name), decisionList, openTasks),
-    lead: await leadership(projectId, taskRows, list),
+    workload: workload(list, team.map((u) => u.name), decisionList, openTasks, await management(projectId, taskRows, list)),
   };
 }
 
-// ---- Công việc dẫn dắt: tạo, chuẩn hoá, giao, kiểm, chốt, hướng dẫn trên việc của người khác ----
+// ---- Việc quản lý: lập, chuẩn hoá, giao, kiểm, chốt, hướng dẫn trên việc của người khác ----
 // Bảng khối lượng chỉ thấy việc được giao. Người điều phối làm phần lớn việc trên việc của người khác –
 // đọc từ nhật ký và bình luận 14 ngày (gồm cả thao tác agent làm bằng token của người đó).
 
 export const LEAD_KINDS = [
-  { key: "plan", label: "Lập & chia việc", hint: "tạo việc, tách việc con, gom nhóm" },
-  { key: "normalize", label: "Chuẩn hoá theo nguồn", hint: "sửa nội dung, đối chiếu, cập nhật khi nguồn đổi" },
+  { key: "plan", label: "Lập & chuẩn hoá việc", hint: "tạo việc, tách việc con, sửa nội dung, đối chiếu, cập nhật khi nguồn đổi" },
   { key: "assign", label: "Giao & điều phối", hint: "giao người, chuyển trạng thái việc của người khác" },
   { key: "verify", label: "Kiểm tra & xác nhận", hint: "review, kiểm trên dev / production, xác nhận xong, gắn bản release" },
   { key: "decide", label: "Quyết định & chốt", hint: "chốt phương án, đổi ưu tiên, thương lượng, duyệt" },
@@ -219,7 +217,7 @@ function noteKind(text: string): LeadKind {
   const t = fold(text);
   if (/quyet|chot|thuong luong|dong y|phe duyet|\b(ha|nang) p[0-3]/.test(t)) return "decide";
   if (/kiem|review|doi chieu lai|xac nhan|verify|do lai|do sau|test|chay lai|\blen \S+\.\w|production|pr #|gop vao|merge/.test(t)) return "verify";
-  if (/chuan hoa|quy uoc|doi chieu|cap nhat theo|theo nguon|tach /.test(t)) return "normalize";
+  if (/chuan hoa|quy uoc|doi chieu|cap nhat theo|theo nguon|tach /.test(t)) return "plan";
   if (/giao |chuyen cho|phan cong/.test(t)) return "assign";
   return "guide";
 }
@@ -229,7 +227,7 @@ function logKind(text: string, ownTask: boolean): LeadKind | null {
   if (ownTask) return null; // việc của chính mình: đã tính ở bảng khối lượng
   if (text.startsWith("Giao cho")) return "assign";
   if (/^(Bản release|Bỏ bản release)/.test(text)) return "verify";
-  if (text.startsWith("Sửa: ")) return /(^|, )ưu tiên /.test(text.slice(5)) ? "decide" : "normalize";
+  if (text.startsWith("Sửa: ")) return /(^|, )ưu tiên /.test(text.slice(5)) ? "decide" : "plan";
   if (text.startsWith("Trạng thái:")) {
     const to = text.split("→")[1]?.replace(/\(.*$/, "").trim() ?? "";
     return DONE_LABELS.includes(to) ? "verify" : "assign";
@@ -237,7 +235,7 @@ function logKind(text: string, ownTask: boolean): LeadKind | null {
   return noteKind(text);
 }
 
-async function leadership(
+async function management(
   projectId: number,
   taskRows: { key: string; assignee: string | null }[],
   list: ReportTask[],
@@ -339,9 +337,10 @@ function workload(
   team: string[],
   decisions: { key: string; who: string }[],
   openTasks: ReportTask[],
+  manage: Awaited<ReturnType<typeof management>>,
 ) {
   const since = new Date(Date.now() - 14 * DAY).toISOString().slice(0, 10);
-  const names = [...new Set([...team, ...list.flatMap((t) => (t.assignee ? [t.assignee] : []))])];
+  const names = [...new Set([...team, ...list.flatMap((t) => (t.assignee ? [t.assignee] : [])), ...manage.rows.map((m) => m.name)])];
   const round = (n: number) => Math.round(n * 10) / 10;
 
   const people = names
@@ -349,8 +348,23 @@ function workload(
       const mine = list.filter((t) => t.assignee === name);
       const open = mine.filter((t) => OPEN.includes(t.status));
       const recent = mine.filter((t) => t.doneOn && t.doneOn >= since);
+      const m = manage.rows.find((x) => x.name === name);
+      const kinds = Object.fromEntries(LEAD_KINDS.map((k) => [k.key, m?.kinds[k.key] ?? { tasks: 0, actions: 0 }])) as Record<
+        LeadKind,
+        { tasks: number; actions: number }
+      >;
+      // đầu việc = việc thực hiện (đang giữ + xong 14 ngày) + việc quản lý theo từng loại (một việc có thể ở nhiều loại)
+      const exec = open.length + recent.length;
+      const managed = LEAD_KINDS.reduce((a, k) => a + kinds[k.key].tasks, 0);
       return {
         name,
+        exec,
+        kinds,
+        managed,
+        units: exec + managed,
+        others: m?.others ?? 0,
+        signedDone: m?.signedDone ?? 0,
+        othersDone: m?.othersDone ?? 0,
         openCount: open.length,
         load: round(open.reduce((a, t) => a + points(t), 0)),
         urgent: open.filter((t) => t.priority === "P0" || t.priority === "P1").length,
@@ -366,24 +380,27 @@ function workload(
       };
     })
     // người chưa từng nhận việc và không giữ quyết định nào thì không đưa vào bảng
-    .filter((p) => p.hasWork || p.decisions.length || p.approvals.length);
+    .filter((p) => p.hasWork || p.units || p.decisions.length || p.approvals.length);
 
-  // mức trung bình chia đều cho những người đang nhận việc trong dự án
-  const workers = people.filter((p) => p.hasWork);
-  const avg = workers.length ? workers.reduce((a, p) => a + p.load, 0) / workers.length : 0;
+  // trung bình đầu việc của những người có việc (thực hiện hoặc quản lý)
+  const workers = people.filter((p) => p.units > 0);
+  const avg = workers.length ? workers.reduce((a, p) => a + p.units, 0) / workers.length : 0;
+  // nhẹ việc phải nhẹ cả phần đang giữ – người quản lý nhiều kéo trung bình đầu việc lên, không được làm người làm nhiều thành "nhẹ"
+  const holders = people.filter((p) => p.hasWork);
+  const avgLoad = holders.length ? holders.reduce((a, p) => a + p.load, 0) / holders.length : 0;
   const rows = people
     .map(({ hasWork, ...p }) => {
       const flags: string[] = [];
-      if (avg > 0 && p.load > avg * 1.5) flags.push(`Quá tải – gấp ${round(p.load / avg)} lần mức trung bình`);
-      else if (hasWork && avg > 0 && p.load < avg * 0.5) flags.push("Nhẹ việc – có thể nhận thêm");
+      if (workers.length > 1 && p.units > avg * 1.5) flags.push(`Quá tải – gấp ${fmt(round(p.units / avg))} lần mức trung bình`);
+      else if (hasWork && workers.length > 1 && p.units < avg * 0.5 && p.load < avgLoad * 0.5) flags.push("Nhẹ việc – có thể nhận thêm");
       if (p.p0 >= 2) flags.push(`Giữ ${p.p0} việc chặn phát hành`);
       if (p.doing >= 3) flags.push(`Làm song song ${p.doing} việc`);
       if (p.decisions.length + p.approvals.length >= 3) {
         flags.push(`Đang là người quyết ${p.decisions.length + p.approvals.length} chỗ – dễ thành nút thắt`);
       }
-      return { ...p, share: avg ? round(p.load / avg) : 0, flags };
+      return { ...p, share: avg ? round(p.units / avg) : 0, flags };
     })
-    .sort((a, b) => b.load - a.load || b.urgent - a.urgent || a.name.localeCompare(b.name));
+    .sort((a, b) => b.units - a.units || b.load - a.load || a.name.localeCompare(b.name));
 
   const unassigned = openTasks.filter((t) => !t.assignee);
   return {
@@ -474,30 +491,24 @@ export function buildSummary(r: Report, projectName: string): SummarySection[] {
       lines: r.blocked.map((t) => line(t, false)),
     });
   }
-  if (r.lead.rows.length) {
-    sections.push({
-      title: "Công việc dẫn dắt (14 ngày)",
-      intro: "Phần việc ngoài việc được giao: lập, chuẩn hoá, giao, kiểm tra, chốt, hướng dẫn.",
-      lines: r.lead.rows.map((x) => {
-        const parts = LEAD_KINDS.filter((k) => x.kinds[k.key].tasks).map((k) => `${k.label.toLowerCase()} ${x.kinds[k.key].tasks}`);
-        const lever = x.othersDone ? ` ${x.signedDone}/${x.othersDone} việc người khác làm xong có ${x.name} kiểm hoặc chốt.` : "";
-        return `${x.name}: tác động ${x.touched} việc (${x.others} của người khác) – ${parts.join(", ")}.${lever}`;
-      }),
-    });
-  }
   const W = r.workload;
   if (W.rows.length) {
     const top = W.rows[0];
     const over = W.rows.filter((p) => p.flags.some((f) => f.startsWith("Quá tải")));
     sections.push({
       title: "Khối lượng theo người",
-      intro: `Cân theo độ nặng chứ không chỉ đếm việc: điểm = cỡ việc (S 1, M 2, L 4) × ưu tiên (P0 ×2, P1 ×1,5, P2 ×1, P3 ×0,5); việc đang chờ duyệt / kiểm tra tính nửa điểm. Trung bình mỗi người đang giữ ${fmt(W.avg)} điểm.${
-        over.length ? ` Cần san bớt việc của ${over.map((p) => p.name).join(", ")}.` : top.load ? " Việc đang chia khá đều." : ""
+      intro: `Gồm việc thực hiện (việc được giao: đang giữ và xong trong 14 ngày) và việc quản lý trên việc của người khác trong 14 ngày (lập & chuẩn hoá, giao, kiểm tra, quyết định, hướng dẫn). Trung bình ${fmt(W.avg)} đầu việc mỗi người.${
+        over.length ? ` Cần san bớt việc của ${over.map((p) => p.name).join(", ")}.` : top.units ? " Việc đang chia khá đều." : ""
       }`,
       lines: [
         ...W.rows.map((p) => {
           const parts = [
-            `${p.name}: ${p.openCount} việc chưa xong, ${fmt(p.load)} điểm${W.avg ? ` (${fmt(p.share)}× trung bình)` : ""}`,
+            `${p.name}: ${p.units} đầu việc${W.avg ? ` (${fmt(p.share)}× trung bình)` : ""} – thực hiện ${p.exec}, quản lý ${p.managed}`,
+            p.managed
+              ? `quản lý gồm ${LEAD_KINDS.filter((k) => p.kinds[k.key].tasks).map((k) => `${k.label.toLowerCase()} ${p.kinds[k.key].tasks}`).join(", ")}`
+              : "",
+            p.othersDone ? `${p.signedDone}/${p.othersDone} việc người khác làm xong có ${p.name} kiểm hoặc chốt` : "",
+            p.openCount ? `đang giữ ${p.openCount} việc (${fmt(p.load)} điểm nặng)` : "",
             p.urgent ? `${p.urgent} việc gấp` : "",
             p.waiting ? `${p.waiting} việc đang chờ duyệt / kiểm tra` : "",
             p.doneRecent ? `xong ${p.doneRecent} việc (${fmt(p.doneRecentPoints)} điểm) trong 14 ngày` : "chưa xong việc nào trong 14 ngày",

@@ -98,7 +98,6 @@ async function ReportContent() {
           </div>
 
           {r.workload.rows.length > 0 && <Workload w={r.workload} />}
-          {r.lead.rows.length > 0 && <Lead l={r.lead} />}
 
           <section className="card p-4 md:p-6">
             <h2 className="text-lg font-semibold">Tóm tắt cho quản lý</h2>
@@ -131,170 +130,146 @@ async function ReportContent() {
 
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
 
+// Màu theo bảng phân loại đã kiểm (validate_palette: 6 ô, đạt CVD); 3 màu nhạt dưới 3:1 nên luôn kèm chú giải + số
+const SEG: Record<"exec" | (typeof LEAD_KINDS)[number]["key"], string> = {
+  exec: "#2a78d6",
+  plan: "#eb6834",
+  assign: "#1baf7a",
+  verify: "#eda100",
+  decide: "#e87ba4",
+  guide: "#008300",
+};
+
 function Workload({ w }: { w: Report["workload"] }) {
-  const max = Math.max(w.avg * 1.5, ...w.rows.map((p) => p.load), w.unassigned.load, 1);
-  const bar = (load: number, label: string) => (
-    <div className="relative h-3 w-full rounded bg-slate-100" title={label}>
-      <div className="h-full rounded bg-blue-600" style={{ width: `${(load / max) * 100}%` }} />
-      {w.avg > 0 && (
-        <div
-          className="absolute -top-1 -bottom-1 w-0.5 bg-slate-500"
-          style={{ left: `${(w.avg / max) * 100}%` }}
-          aria-hidden
-        />
-      )}
-    </div>
-  );
+  const max = Math.max(w.avg * 1.25, ...w.rows.map((p) => p.units), 1);
+  const series = [
+    { key: "exec" as const, label: "Thực hiện", hint: "việc được giao: đang giữ + xong trong 14 ngày" },
+    ...LEAD_KINDS.map((k) => ({ key: k.key, label: k.label, hint: k.hint })),
+  ];
+  const value = (p: Report["workload"]["rows"][number], key: (typeof series)[number]["key"]) =>
+    key === "exec" ? p.exec : p.kinds[key].tasks;
   return (
     <section className="card p-4 md:p-5">
       <h2 className="font-semibold">Khối lượng theo người</h2>
       <p className="mb-3 text-xs text-slate-500">
-        Cân theo độ nặng, không chỉ đếm việc. Điểm = cỡ việc (S 1 · M 2 · L 4, chưa ước lượng tính M) × ưu tiên (P0 ×2 ·
-        P1 ×1,5 · P2 ×1 · P3 ×0,5); việc chờ duyệt / đang kiểm tra tính nửa điểm. Vạch xám = trung bình {fmt(w.avg)}{" "}
-        điểm mỗi người.
+        14 ngày gần nhất, đơn vị là đầu việc: việc được giao (đang giữ + đã xong) cộng việc quản lý trên việc của người khác,
+        tính theo từng loại – một việc vừa giao vừa kiểm tính 2. Lấy từ nhật ký và bình luận, gồm cả thao tác agent làm bằng
+        tài khoản của người đó. Vạch xám = trung bình {fmt(w.avg)}.
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
-              <th className="py-2 pr-3 font-medium">Người</th>
-              <th className="w-[28%] py-2 pr-3 font-medium">Đang giữ (điểm)</th>
-              <th className="py-2 pr-3 text-right font-medium">Việc mở</th>
-              <th className="py-2 pr-3 text-right font-medium">Gấp</th>
-              <th className="py-2 pr-3 text-right font-medium">Đang làm</th>
-              <th className="py-2 pr-3 text-right font-medium">Chờ duyệt / KT</th>
-              <th className="py-2 pr-3 text-right font-medium">Xong 14 ngày</th>
-              <th className="py-2 font-medium">Trách nhiệm quyết định</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {w.rows.map((p) => (
-              <tr key={p.name} className="align-top">
-                <td className="py-2 pr-3 font-medium whitespace-nowrap text-slate-900">{p.name}</td>
-                <td className="py-2 pr-3">
-                  <div className="flex items-center gap-2">
-                    {bar(p.load, `${p.name}: ${fmt(p.load)} điểm (${fmt(p.share)}× trung bình)`)}
-                    <span className="w-10 shrink-0 text-right tabular-nums">{fmt(p.load)}</span>
+      <ul className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600" aria-label="Chú giải">
+        {series.map((s, i) => (
+          <li key={s.key} className="flex items-center gap-1.5" title={s.hint}>
+            <span className="size-2.5 rounded-sm" style={{ background: SEG[s.key] }} aria-hidden />
+            {s.label}
+            {i === 0 && <span className="text-slate-300">|</span>}
+          </li>
+        ))}
+      </ul>
+      <div className="space-y-4">
+        {w.rows.map((p) => (
+          <div key={p.name} className="grid gap-x-4 gap-y-1 md:grid-cols-[9rem_1fr_6rem]">
+            <div className="font-medium text-slate-900">{p.name}</div>
+            <div>
+              <div className="relative">
+                <div className="flex h-3.5 gap-[2px]" role="img" aria-label={`${p.name}: ${p.units} đầu việc`}>
+                  {series.map((s) => {
+                    const n = value(p, s.key);
+                    if (!n) return null;
+                    return (
+                      <div
+                        key={s.key}
+                        className="h-full rounded-[3px] transition-opacity hover:opacity-80"
+                        style={{ width: `${(n / max) * 100}%`, background: SEG[s.key] }}
+                        title={`${p.name} · ${s.label}: ${n} việc${s.key === "exec" ? "" : ` (${p.kinds[s.key].actions} lượt)`}`}
+                      />
+                    );
+                  })}
+                </div>
+                {w.avg > 0 && (
+                  <div className="absolute -top-1 -bottom-1 w-0.5 bg-slate-500" style={{ left: `${(w.avg / max) * 100}%` }} aria-hidden />
+                )}
+              </div>
+              <div className="mt-1.5 space-y-0.5 text-xs text-slate-600">
+                <div>
+                  <span className="font-medium text-slate-800">Thực hiện {p.exec}:</span>{" "}
+                  {[
+                    p.openCount ? `giữ ${p.openCount} việc (${fmt(p.load)} điểm nặng)` : "không giữ việc nào",
+                    p.urgent ? `${p.urgent} gấp${p.p0 ? `, ${p.p0} P0` : ""}` : "",
+                    p.waiting ? `${p.waiting} chờ duyệt / KT` : "",
+                    `xong ${p.doneRecent}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+                {p.managed > 0 && (
+                  <div>
+                    <span className="font-medium text-slate-800">Quản lý {p.managed}:</span>{" "}
+                    {[
+                      `${p.others} việc của người khác`,
+                      p.othersDone ? `${p.signedDone}/${p.othersDone} việc người khác làm xong có kiểm hoặc chốt` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
-                  {p.flags.map((f) => (
-                    <div key={f} className="mt-1 text-xs font-medium text-amber-800">
-                      <span aria-hidden>⚠ </span>
-                      {f}
-                    </div>
-                  ))}
-                  {p.unestimated > 0 && (
-                    <div className="mt-1 text-xs text-slate-500">{p.unestimated} việc chưa ước lượng (tính như M)</div>
-                  )}
-                </td>
-                <td className="py-2 pr-3 text-right tabular-nums">{p.openCount}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">
-                  {p.urgent || "–"}
-                  {p.p0 > 0 && <span className="block text-xs text-red-700">{p.p0} P0</span>}
-                </td>
-                <td className="py-2 pr-3 text-right tabular-nums">{p.doing || "–"}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{p.waiting || "–"}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">
-                  {p.doneRecent ? (
-                    <>
-                      {p.doneRecent}
-                      <span className="block text-xs text-slate-500">{fmt(p.doneRecentPoints)} điểm</span>
-                    </>
-                  ) : (
-                    "–"
-                  )}
-                </td>
-                <td className="py-2 text-xs text-slate-600">
-                  {[...p.decisions, ...p.approvals.map((k) => `duyệt ${k}`)].join(", ") || "–"}
-                </td>
-              </tr>
-            ))}
-            {w.unassigned.count > 0 && (
-              <tr className="align-top text-slate-600">
-                <td className="py-2 pr-3 italic">Chưa giao</td>
-                <td className="py-2 pr-3">
-                  <div className="flex items-center gap-2">
-                    {bar(w.unassigned.load, `Chưa giao: ${fmt(w.unassigned.load)} điểm`)}
-                    <span className="w-10 shrink-0 text-right tabular-nums">{fmt(w.unassigned.load)}</span>
+                )}
+                {p.decisions.length + p.approvals.length > 0 && (
+                  <div>
+                    <span className="font-medium text-slate-800">Giữ quyết định:</span>{" "}
+                    {[...p.decisions, ...p.approvals.map((k) => `duyệt ${k}`)].join(", ")}
                   </div>
-                </td>
-                <td className="py-2 pr-3 text-right tabular-nums">{w.unassigned.count}</td>
-                <td className="py-2 pr-3 text-right tabular-nums">{w.unassigned.urgent || "–"}</td>
-                <td colSpan={4} />
-              </tr>
-            )}
-          </tbody>
-        </table>
+                )}
+                {p.flags.map((f) => (
+                  <div key={f} className="font-medium text-amber-800">
+                    <span aria-hidden>⚠ </span>
+                    {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="text-right md:order-none">
+              <span className="text-lg font-semibold text-slate-900 tabular-nums">{p.units}</span>
+              <span className="block text-xs text-slate-500">{w.avg ? `${fmt(p.share)}× trung bình` : "đầu việc"}</span>
+            </div>
+          </div>
+        ))}
       </div>
-    </section>
-  );
-}
-
-// Công việc dẫn dắt: mỗi ô = số việc (không phải số lượt) người đó tác động theo từng loại, trên việc không giao cho họ
-function Lead({ l }: { l: Report["lead"] }) {
-  const max = Math.max(1, ...l.rows.flatMap((r) => LEAD_KINDS.map((k) => r.kinds[k.key].tasks)));
-  // thang một sắc xanh: càng nhiều việc càng đậm
-  const tone = (n: number) =>
-    !n ? "text-slate-400" : n / max > 0.66 ? "bg-blue-600 text-white" : n / max > 0.33 ? "bg-blue-200 text-blue-950" : "bg-blue-50 text-blue-900";
-  return (
-    <section className="card p-4 md:p-5">
-      <h2 className="font-semibold">Công việc dẫn dắt (14 ngày)</h2>
-      <p className="mb-3 text-xs text-slate-500">
-        Phần việc không nằm trong việc được giao: lập việc, chuẩn hoá, giao, kiểm tra, chốt, hướng dẫn. Mỗi ô là số việc đã tác
-        động (rê chuột xem số lượt), chỉ tính việc giao cho người khác hoặc chưa giao, lấy từ nhật ký và bình luận – gồm cả thao
-        tác agent làm bằng tài khoản của người đó.
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-left text-xs text-slate-500">
-              <th className="py-2 pr-3 font-medium">Người</th>
-              {LEAD_KINDS.map((k) => (
-                <th key={k.key} className="px-1 py-2 text-center font-medium" title={k.hint}>
-                  {k.label}
-                </th>
-              ))}
-              <th className="py-2 pl-3 text-right font-medium">Việc đã chạm</th>
-              <th className="py-2 pl-3 font-medium">Đòn bẩy</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {l.rows.map((r) => (
-              <tr key={r.name} className="align-middle">
-                <td className="py-2 pr-3 font-medium whitespace-nowrap text-slate-900">{r.name}</td>
-                {LEAD_KINDS.map((k) => {
-                  const c = r.kinds[k.key];
-                  return (
-                    <td key={k.key} className="px-1 py-1.5 text-center">
-                      <span
-                        className={`inline-block min-w-10 rounded px-2 py-1 tabular-nums ${tone(c.tasks)}`}
-                        title={`${r.name} · ${k.label}: ${c.tasks} việc, ${c.actions} lượt`}
-                      >
-                        {c.tasks || "–"}
-                      </span>
+      {w.unassigned.count > 0 && (
+        <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-600">
+          <span className="font-medium text-slate-800">Chưa giao:</span> {w.unassigned.count} việc, {fmt(w.unassigned.load)} điểm
+          nặng{w.unassigned.urgent ? `, ${w.unassigned.urgent} việc gấp` : ""}.
+        </p>
+      )}
+      <details className="mt-3 text-sm">
+        <summary className="cursor-pointer text-xs text-slate-500">Bảng số liệu</summary>
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full min-w-[720px] text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-slate-500">
+                <th className="py-1.5 pr-3 font-medium">Người</th>
+                {series.map((s) => (
+                  <th key={s.key} className="py-1.5 pr-3 text-right font-medium" title={s.hint}>
+                    {s.label}
+                  </th>
+                ))}
+                <th className="py-1.5 text-right font-medium">Tổng</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {w.rows.map((p) => (
+                <tr key={p.name}>
+                  <td className="py-1.5 pr-3 font-medium text-slate-800">{p.name}</td>
+                  {series.map((s) => (
+                    <td key={s.key} className="py-1.5 pr-3 text-right tabular-nums">
+                      {value(p, s.key) || "–"}
                     </td>
-                  );
-                })}
-                <td className="py-2 pl-3 text-right tabular-nums">
-                  {r.touched}
-                  <span className="block text-xs text-slate-500">{r.others} của người khác</span>
-                </td>
-                <td className="py-2 pl-3 text-xs text-slate-600">
-                  {r.othersDone ? (
-                    <>
-                      <span className="text-sm font-semibold text-slate-900 tabular-nums">
-                        {r.signedDone}/{r.othersDone}
-                      </span>{" "}
-                      việc người khác làm xong có kiểm hoặc chốt ({pct(r.signedDone, r.othersDone)}%)
-                    </>
-                  ) : (
-                    "–"
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  ))}
+                  <td className="py-1.5 text-right font-semibold tabular-nums">{p.units}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </section>
   );
 }
