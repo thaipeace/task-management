@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
-import { AREAS, PRIORITIES, TYPES } from "@/lib/constants";
+import { AREAS, PRIORITIES, STATUSES, TYPES } from "@/lib/constants";
 import type { TaskFilters } from "@/lib/queries";
 
 type Props = {
@@ -60,7 +60,7 @@ export function FilterBar({ filters: current, sprints, users, subDefault = true 
   );
 
   const active =
-    !!filters.q || filters.sub !== subDefault || (["sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
+    !!filters.q || filters.sub !== subDefault || (["status", "sprint", "area", "priority", "type", "assignee"] as const).some((k) => filters[k].length);
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -70,6 +70,7 @@ export function FilterBar({ filters: current, sprints, users, subDefault = true 
         placeholder="Tìm theo id, tiêu đề, mô tả…"
         className="input w-60"
       />
+      {multi("status", "Trạng thái", STATUSES.map((s) => ({ value: s.value, label: s.label })))}
       {multi("sprint", "Đợt", [
         ...sprints.map((s) => ({ value: s.code, label: s.code })),
         { value: "none", label: "(Chưa xếp đợt)", short: "chưa xếp" },
@@ -100,7 +101,7 @@ export function FilterBar({ filters: current, sprints, users, subDefault = true 
           onClick={() => {
             setQ("");
             startTransition(() => {
-              setFilters({ sprint: [], area: [], priority: [], type: [], assignee: [], sub: subDefault });
+              setFilters({ status: [], sprint: [], area: [], priority: [], type: [], assignee: [], sub: subDefault });
               router.replace(pathname);
             });
           }}

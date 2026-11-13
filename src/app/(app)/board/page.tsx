@@ -40,8 +40,8 @@ async function BoardContent({ searchParams }: Pick<PageProps<"/board">, "searchP
   return (
     <>
       <FilterBar filters={filters} sprints={sprints} users={users} subDefault={false} />
-      {/* việc đã Released (duyệt ở tab Dev release) không hiện trên Bảng – xem ở Backlog / Báo cáo */}
-      <Board tasks={tasks.filter((t) => t.status !== "released")} users={users} />
+      {/* việc đã Released (duyệt ở tab Dev release) chỉ hiện trên Bảng khi lọc trạng thái có Released */}
+      <Board tasks={filters.status.includes("released") ? tasks : tasks.filter((t) => t.status !== "released")} users={users} />
     </>
   );
 }

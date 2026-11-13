@@ -7,6 +7,7 @@ import { comments, invites, meta, projects, records, sprints, taskAliases, taskL
 // Trên URL: giá trị ngăn bằng dấu phẩy, vd. ?area=BE,FE&priority=P0,P1
 export type TaskFilters = {
   q?: string;
+  status: string[];
   sprint: string[]; // mã đợt | "none"
   area: string[];
   priority: string[];
@@ -15,7 +16,7 @@ export type TaskFilters = {
   sub: boolean; // hiện việc con (?sub=1 / ?sub=0; không có thì theo mặc định của trang)
 };
 
-export const LIST_FILTER_KEYS = ["sprint", "area", "priority", "type", "assignee"] as const;
+export const LIST_FILTER_KEYS = ["status", "sprint", "area", "priority", "type", "assignee"] as const;
 
 // subDefault: hiện việc con khi URL không có ?sub (Bảng mặc định ẩn, Backlog mặc định hiện)
 export function readFilters(sp: Record<string, string | string[] | undefined>, subDefault = true): TaskFilters {
@@ -26,6 +27,7 @@ export function readFilters(sp: Record<string, string | string[] | undefined>, s
   const q = Array.isArray(sp.q) ? sp.q[0] : sp.q;
   return {
     q: q || undefined,
+    status: list("status"),
     sprint: list("sprint"),
     area: list("area"),
     priority: list("priority"),
@@ -60,6 +62,7 @@ export async function listTasks(projectId: number, f: TaskFilters, meId: number)
       )!,
     );
   }
+  if (f.status.length) where.push(inArray(tasks.status, f.status));
   if (f.sprint.length) where.push(inListOrNull(tasks.sprint, f.sprint));
   if (f.area.length) where.push(inArray(tasks.area, f.area));
   if (f.priority.length) where.push(inArray(tasks.priority, f.priority));
