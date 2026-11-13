@@ -21,7 +21,10 @@ const MOBILE_ONLY = [{ href: "/account", label: "Tài khoản", icon: "◉" }];
 export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const item = (l: { href: string; label: string; icon: string }, extra = "") => {
-    const active = pathname === l.href || pathname.startsWith(l.href + "/");
+    // người dùng thường không xem được Tổng quan – mục Báo cáo mở thẳng Báo cáo tuần
+    const base = l.href;
+    if (base === "/report" && !isAdmin) l = { ...l, href: "/report/weekly" };
+    const active = pathname === base || pathname.startsWith(base + "/");
     return (
       <Link
         key={l.href}

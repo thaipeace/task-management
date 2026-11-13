@@ -6,6 +6,7 @@ import { CopySummary } from "@/components/copy-summary";
 import { ReportTabs } from "@/components/report-tabs";
 import { RichText } from "@/components/rich-text";
 import { Loading, PageHeader } from "@/components/ui";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { PRIORITIES, STATUSES, today } from "@/lib/constants";
 import { getCurrentProject } from "@/lib/projects";
@@ -24,7 +25,9 @@ export default function ReportPage() {
 }
 
 async function ReportContent() {
-  const [, project] = await Promise.all([requireUser(), getCurrentProject()]);
+  const [me, project] = await Promise.all([requireUser(), getCurrentProject()]);
+  // Tổng quan (khối lượng theo người, rủi ro…) chỉ admin xem
+  if (me.role !== "admin") redirect("/report/weekly");
   const r = await getReport(project.id);
   const date = today();
   const sections = buildSummary(r, project.name);
