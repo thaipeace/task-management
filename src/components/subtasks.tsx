@@ -5,7 +5,8 @@ import { useOptimistic, useRef, useState, useTransition } from "react";
 import { addSubtask, moveSubtask, setStatus } from "@/app/actions/tasks";
 import { STATUSES, isDone, labelOf } from "@/lib/constants";
 import { toast } from "@/lib/toast";
-import { Avatar, PriorityBadge } from "./ui";
+import { AssigneePicker, type PickerUser } from "./assignee-picker";
+import { PriorityBadge } from "./ui";
 import { useFormAction } from "./use-form-action";
 
 type Sub = {
@@ -14,10 +15,11 @@ type Sub = {
   status: string;
   priority: string;
   subOrder: number;
+  assigneeId: number | null;
   assigneeName: string | null;
 };
 
-export function Subtasks({ parentKey, items: initial }: { parentKey: string; items: Sub[] }) {
+export function Subtasks({ parentKey, items: initial, users }: { parentKey: string; items: Sub[]; users: PickerUser[] }) {
   // thứ tự / trạng thái lạc quan – xong transition thì về dữ liệu máy chủ
   const [items, apply] = useOptimistic(initial, (list: Sub[], m: Partial<Sub> & { key: string }) =>
     list
@@ -162,7 +164,7 @@ export function Subtasks({ parentKey, items: initial }: { parentKey: string; ite
                     </option>
                   ))}
                 </select>
-                <Avatar name={s.assigneeName} size={22} />
+                <AssigneePicker taskKey={s.key} assigneeId={s.assigneeId} assigneeName={s.assigneeName} users={users} />
               </li>
             );
           })}

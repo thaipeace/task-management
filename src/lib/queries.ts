@@ -136,6 +136,7 @@ export async function getTask(key: string) {
         status: tasks.status,
         priority: tasks.priority,
         subOrder: tasks.subOrder,
+        assigneeId: tasks.assigneeId,
         assigneeName: users.name,
       })
       .from(tasks)

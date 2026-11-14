@@ -128,7 +128,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
           </Section>
 
           {/* việc con chỉ một cấp: việc con không có danh sách việc con */}
-          {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} />}
+          {!t.parentKey && <Subtasks parentKey={t.key} items={subtasks} users={users} />}
 
           <CollapsibleSection title={`Bình luận (${comments.length})`} defaultOpen>
             <ToastForm action={addComment.bind(null, t.key)} loading="Đang gửi bình luận…" success="Đã gửi bình luận" error="Không gửi được bình luận" className="mb-4 flex gap-3">
