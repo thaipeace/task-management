@@ -27,9 +27,10 @@ export default function WeeklyPage({ searchParams }: PageProps<"/report/weekly">
 async function WeeklyContent({ searchParams }: Pick<PageProps<"/report/weekly">, "searchParams">) {
   const [, project] = await Promise.all([requireUser(), getCurrentProject()]);
   const sp = await searchParams;
-  const raw = typeof sp.tuan === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.tuan) ? sp.tuan : today();
-  const [w, saved] = await Promise.all([getWeekly(project.id, raw), listWeeklyReports(project.id)]);
   const thisWeek = weekStartOf(today());
+  // mặc định tuần vừa rồi – tuần hiện tại chưa xong nên chưa có báo cáo
+  const raw = typeof sp.tuan === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.tuan) ? sp.tuan : addDays(thisWeek, -7);
+  const [w, saved] = await Promise.all([getWeekly(project.id, raw), listWeeklyReports(project.id)]);
   const range = `${fmtDay(w.weekStart)}–${fmtDay(w.weekEnd)}`;
   const body = w.report?.body ?? draftBody(w);
   // tuần đang xem chưa có báo cáo: chỉ tới bản gần nhất (agent thường viết tuần trước vào đầu tuần sau)
@@ -51,7 +52,7 @@ async function WeeklyContent({ searchParams }: Pick<PageProps<"/report/weekly">,
           ‹ Tuần trước
         </a>
         {w.weekStart !== thisWeek && (
-          <a href="/report/weekly" className="btn-secondary">
+          <a href={`/report/weekly?tuan=${thisWeek}`} className="btn-secondary">
             Tuần này
           </a>
         )}
