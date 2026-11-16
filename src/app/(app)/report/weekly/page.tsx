@@ -32,6 +32,8 @@ async function WeeklyContent({ searchParams }: Pick<PageProps<"/report/weekly">,
   const thisWeek = weekStartOf(today());
   const range = `${fmtDay(w.weekStart)}–${fmtDay(w.weekEnd)}`;
   const body = w.report?.body ?? draftBody(w);
+  // tuần đang xem chưa có báo cáo: chỉ tới bản gần nhất (agent thường viết tuần trước vào đầu tuần sau)
+  const latest = saved.find((x) => x.weekStart !== w.weekStart);
   const people = w.capacity.filter((c) => c.perWeek || c.thisWeek || w.plan.some((p) => p.assignee === c.name));
 
   return (
@@ -44,18 +46,19 @@ async function WeeklyContent({ searchParams }: Pick<PageProps<"/report/weekly">,
       <ReportTabs />
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <Link href={`/report/weekly?tuan=${addDays(w.weekStart, -7)}`} className="btn-secondary">
+        {/* chuyển tuần bằng tải lại trang: trên Vercel chuyển trang phía client từng giữ nguyên ?tuan cũ */}
+        <a href={`/report/weekly?tuan=${addDays(w.weekStart, -7)}`} className="btn-secondary">
           ‹ Tuần trước
-        </Link>
+        </a>
         {w.weekStart !== thisWeek && (
-          <Link href="/report/weekly" className="btn-secondary">
+          <a href="/report/weekly" className="btn-secondary">
             Tuần này
-          </Link>
+          </a>
         )}
         {w.weekStart < thisWeek && (
-          <Link href={`/report/weekly?tuan=${addDays(w.weekStart, 7)}`} className="btn-secondary">
+          <a href={`/report/weekly?tuan=${addDays(w.weekStart, 7)}`} className="btn-secondary">
             Tuần sau ›
-          </Link>
+          </a>
         )}
         <Link href="/goals" className="btn-ghost ml-auto">
           Sửa mục tiêu →
@@ -74,6 +77,16 @@ async function WeeklyContent({ searchParams }: Pick<PageProps<"/report/weekly">,
             <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
               Chưa có báo cáo cho tuần này. Claude viết vào thứ Bảy (<code>tm weekly</code> rồi <code>tm weekly-save</code>).
               Dưới đây là bản nháp tự động từ số liệu.
+              {latest && (
+                <>
+                  {" "}
+                  Báo cáo gần nhất:{" "}
+                  <a href={`/report/weekly?tuan=${latest.weekStart}`} className="font-medium underline">
+                    tuần {fmtDay(latest.weekStart)}–{fmtDay(addDays(latest.weekStart, 6))}
+                  </a>
+                  .
+                </>
+              )}
             </p>
           )}
           <RichText text={body} />
@@ -183,9 +196,9 @@ async function WeeklyContent({ searchParams }: Pick<PageProps<"/report/weekly">,
             {saved.map((s, i) => (
               <span key={s.weekStart}>
                 {i > 0 && " · "}
-                <Link href={`/report/weekly?tuan=${s.weekStart}`} className="text-brand hover:underline">
+                <a href={`/report/weekly?tuan=${s.weekStart}`} className="text-brand hover:underline">
                   {fmtDay(s.weekStart)}
-                </Link>
+                </a>
               </span>
             ))}
           </section>
