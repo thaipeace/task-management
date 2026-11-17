@@ -156,7 +156,10 @@ export function Subtasks({ parentKey, items: initial, users }: { parentKey: stri
                       });
                     });
                   }}
-                  className="input w-28 py-0.5 text-xs"
+                  // nền theo màu cột trạng thái trên Bảng – nhiều việc con vẫn nhìn ra ngay trạng thái
+                  className={`w-36 rounded-md border border-slate-300/70 px-2 py-0.5 text-xs font-medium text-slate-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 ${
+                    STATUSES.find((st) => st.value === s.status)?.column ?? "bg-white"
+                  }`}
                 >
                   {STATUSES.map((st) => (
                     <option key={st.value} value={st.value}>
