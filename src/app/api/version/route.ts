@@ -1,14 +1,15 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
-import { getCurrentProject } from "@/lib/projects";
+import { getCurrentProject, getProjectByCode } from "@/lib/projects";
 
 // Dấu vân tay dữ liệu của dự án đang xem – trình duyệt hỏi định kỳ, khác lần trước thì refresh.
 // Gồm cả thứ tự kéo thả (position / sub_order) vì đổi thứ tự không chạm updated_at.
-export async function GET() {
+export async function GET(req: Request) {
   const me = await getCurrentUser();
   if (!me) return new Response("Chưa đăng nhập", { status: 401 });
-  const project = await getCurrentProject();
+  const code = new URL(req.url).searchParams.get("du_an");
+  const project = (code && (await getProjectByCode(code))) || (await getCurrentProject());
   const id = project.id;
   const { rows } = await db.execute<{ v: string }>(sql`
     select md5(concat_ws('|',

@@ -10,7 +10,7 @@ const RC_VERSION = /^(\d+\.\d+\.\d+)-rc(\d+)$/;
 export type DevRelease = typeof devReleases.$inferSelect;
 
 export function releasePath(projectCode: string, version: string) {
-  return `/report/releases/${projectCode}/${version}`;
+  return `/${projectCode}/report/releases/${version}`;
 }
 
 export function releaseVersion(main: string, rc: number) {

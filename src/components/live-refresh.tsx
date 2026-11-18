@@ -36,7 +36,10 @@ export function LiveRefresh() {
       lastCheck.current = Date.now();
       let v: string;
       try {
-        const res = await fetch("/api/version", { cache: "no-store" });
+        // dự án của tab theo đường dẫn (/SIA/…); trang khác để máy chủ dùng dự án gần nhất
+        const seg = location.pathname.split("/")[1] ?? "";
+        const q = /^[A-Z][A-Z0-9]{1,9}$/.test(seg) ? `?du_an=${seg}` : "";
+        const res = await fetch(`/api/version${q}`, { cache: "no-store" });
         if (!res.ok) return;
         v = (await res.json()).v;
       } catch {

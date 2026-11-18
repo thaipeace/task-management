@@ -1,11 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
 import {
   createProject,
   deleteProject,
-  switchProject,
   updateProject,
   type ProjectFormState,
 } from "@/app/actions/projects";
@@ -82,7 +81,6 @@ export function ProjectRow({
   isCurrent: boolean;
   canDelete: boolean;
 }) {
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -102,20 +100,9 @@ export function ProjectRow({
             <code>{p.code}-001</code>
           </div>
         </div>
-        {!isCurrent && (
-          <button
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                if (await toast.run(() => switchProject(p.code), { loading: "Đang chuyển dự án…", success: `Đang xem ${p.name}`, error: "Không chuyển được dự án" }))
-                  router.push("/board");
-              })
-            }
-            className="btn-secondary py-1 text-xs"
-          >
-            Mở bảng
-          </button>
-        )}
+        <Link href={`/${p.code}/board`} className="btn-secondary py-1 text-xs">
+          Mở bảng
+        </Link>
         <button onClick={() => setEditing((v) => !v)} className="btn-ghost py-1 text-xs">
           {editing ? "Đóng" : "Sửa"}
         </button>

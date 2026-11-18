@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { type ProjectOpt, useProjectCode } from "./use-project";
 
 const MAIN = [
   { href: "/board", label: "Bảng", icon: "▦" },
@@ -18,13 +19,15 @@ const ADMIN = [
 ];
 const MOBILE_ONLY = [{ href: "/account", label: "Tài khoản", icon: "◉" }];
 
-export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
+export function NavLinks({ isAdmin, fallback, projects }: { isAdmin: boolean; fallback: string; projects: ProjectOpt[] }) {
   const pathname = usePathname();
-  const item = (l: { href: string; label: string; icon: string }, extra = "") => {
-    // người dùng thường không xem được Tổng quan – mục Báo cáo mở thẳng Báo cáo tuần
-    const base = l.href;
-    if (base === "/report" && !isAdmin) l = { ...l, href: "/report/weekly" };
+  const code = useProjectCode(projects, fallback);
+  const item = (l: { href: string; label: string; icon: string }, extra = "", scoped = false) => {
+    // trang theo dự án nằm dưới /<mã dự án>/…; người dùng thường không xem được Tổng quan – mục Báo cáo mở thẳng Báo cáo tuần
+    const base = scoped ? `/${code}${l.href}` : l.href;
+    l = { ...l, href: scoped && l.href === "/report" && !isAdmin ? `${base}/weekly` : base };
     const active = pathname === base || pathname.startsWith(base + "/");
+    if (l.href === "/admin/import") l = { ...l, href: `/admin/import?du_an=${code}` };
     return (
       <Link
         key={l.href}
@@ -40,7 +43,7 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   };
   return (
     <nav className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:overflow-visible md:pb-0">
-      {MAIN.map((l) => item(l))}
+      {MAIN.map((l) => item(l, "", true))}
       {isAdmin && (
         <>
           <div className="mt-4 mb-1 hidden px-3 text-[11px] font-semibold tracking-wider text-slate-400 uppercase md:block">
@@ -50,7 +53,7 @@ export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
         </>
       )}
       {MOBILE_ONLY.map((l) => item(l, "md:hidden"))}
-      <Link href="/tasks/new" className="btn-primary mt-3 hidden md:mx-1 md:flex">
+      <Link href={`/${code}/tasks/new`} className="btn-primary mt-3 hidden md:mx-1 md:flex">
         + Tạo việc
       </Link>
     </nav>

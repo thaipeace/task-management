@@ -2,17 +2,23 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { switchProject } from "@/app/actions/projects";
-import { toast } from "@/lib/toast";
+import { type ProjectOpt, useProjectCode } from "./use-project";
 
-type P = { code: string; name: string };
+// Đổi dự án = đổi đường dẫn của tab này (các tab khác giữ dự án của chúng).
+// Đang ở trang của dự án thì sang cùng trang ở dự án mới (bỏ bộ lọc – đợt, người làm… không còn nghĩa); trang khác thì về Bảng.
+function targetPath(pathname: string, from: string, to: string) {
+  const prefix = `/${from}`;
+  if (pathname.toUpperCase() === prefix || !pathname.toUpperCase().startsWith(prefix + "/")) return `/${to}/board`;
+  const rest = pathname.slice(prefix.length);
+  if (rest.startsWith("/report/releases/")) return `/${to}/report/releases`;
+  return `/${to}${rest}`;
+}
 
-// Trang danh sách thì ở lại (lọc theo dự án mới); trang chi tiết việc thì về bảng
-const LIST_PAGES = ["/board", "/backlog", "/sprints", "/records", "/report", "/admin/import", "/tasks/new"];
-
-export function ProjectSwitcher({ current, projects }: { current: P; projects: P[] }) {
+export function ProjectSwitcher({ fallback, projects }: { fallback: string; projects: ProjectOpt[] }) {
   const router = useRouter();
   const pathname = usePathname();
+  const code = useProjectCode(projects, fallback);
+  const current = projects.find((p) => p.code === code) ?? { code, name: code };
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const ref = useRef<HTMLDivElement>(null);
@@ -34,12 +40,7 @@ export function ProjectSwitcher({ current, projects }: { current: P; projects: P
   const pick = (code: string) => {
     setOpen(false);
     if (code === current.code) return;
-    start(async () => {
-      if (!(await toast.run(() => switchProject(code), { loading: "Đang chuyển dự án…", success: `Đang xem dự án ${code}`, error: "Không chuyển được dự án" })))
-        return;
-      // bộ lọc (đợt, người làm…) của dự án cũ không còn nghĩa
-      router.replace(LIST_PAGES.includes(pathname) ? pathname : "/board");
-    });
+    start(() => router.push(targetPath(pathname, current.code, code)));
   };
 
   return (
@@ -77,36 +78,5 @@ export function ProjectSwitcher({ current, projects }: { current: P; projects: P
         </div>
       )}
     </div>
-  );
-}
-
-// Liên kết sang trang danh sách của một dự án cụ thể (vd. từ trang việc của dự án khác)
-export function ProjectLink({
-  code,
-  href,
-  className,
-  children,
-}: {
-  code: string;
-  href: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const router = useRouter();
-  const [, start] = useTransition();
-  return (
-    <a
-      href={href}
-      onClick={(e) => {
-        e.preventDefault();
-        start(async () => {
-          if (await toast.run(() => switchProject(code), { loading: "Đang chuyển dự án…", success: `Đang xem dự án ${code}`, error: "Không chuyển được dự án" }))
-            router.push(href);
-        });
-      }}
-      className={className}
-    >
-      {children}
-    </a>
   );
 }

@@ -3,23 +3,26 @@ import { Suspense } from "react";
 import { ImportForm } from "@/components/import-form";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
-import { getCurrentProject } from "@/lib/projects";
+import { getCurrentProject, getProjectByCode } from "@/lib/projects";
 
 export const metadata: Metadata = { title: "Import / Export" };
 
-export default function ImportPage() {
+export default function ImportPage({ searchParams }: PageProps<"/admin/import">) {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="Import / Export" subtitle="Đồng bộ backlog.json của dự án đang chọn (đổi dự án ở góc trên bên trái)." />
       <Suspense fallback={<Loading />}>
-        <ImportContent />
+        <ImportContent searchParams={searchParams} />
       </Suspense>
     </div>
   );
 }
 
-async function ImportContent() {
-  const [, project] = await Promise.all([requireAdmin(), getCurrentProject()]);
+async function ImportContent({ searchParams }: Pick<PageProps<"/admin/import">, "searchParams">) {
+  await requireAdmin();
+  // ?du_an=SIA (từ Backlog / menu); không có thì dự án dùng gần nhất
+  const du = (await searchParams).du_an;
+  const project = (typeof du === "string" && (await getProjectByCode(du))) || (await getCurrentProject());
   return (
     <div className="space-y-6">
       <section>

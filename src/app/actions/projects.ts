@@ -2,30 +2,15 @@
 
 import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
-import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
 import { counters, devReleases, goals, meta, projects, records, sprints, tasks, weeklyReports } from "@/db/schema";
-import { requireAdmin, requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { AREAS, RECORD_KINDS } from "@/lib/constants";
-import { PROJECT_CODE, PROJECT_COOKIE, getProjectByCode } from "@/lib/projects";
+import { PROJECT_CODE, getProjectByCode } from "@/lib/projects";
 
 export type ProjectFormState = { error?: string; ok?: string } | undefined;
 
-// Đổi dự án đang xem (lưu trong cookie)
-export async function switchProject(code: string) {
-  await requireUser();
-  const project = await getProjectByCode(code);
-  if (!project) throw new Error("Không có dự án này");
-  (await cookies()).set(PROJECT_COOKIE, project.code, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 365 * 86_400,
-  });
-  refresh();
-}
 
 // mã dự án trùng tiền tố mảng / AR / QD sẽ làm id khó đọc (BE-BE-001)
 const RESERVED = [...AREAS.map((a) => a.value), ...Object.values(RECORD_KINDS).map((r) => r.prefix)] as string[];

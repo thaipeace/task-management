@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { addComment, addLog } from "@/app/actions/tasks";
 import { ToastForm } from "@/components/toast-form";
-import { ProjectLink } from "@/components/project-switcher";
 import { MarkdownField } from "@/components/markdown-field";
 import { IdLinks, RichText } from "@/components/rich-text";
 import { Subtasks } from "@/components/subtasks";
@@ -12,6 +11,7 @@ import { AreaBadge, Avatar, Loading, PriorityBadge, TypeIcon } from "@/component
 import { requireUser } from "@/lib/auth";
 import { AREAS, ESTIMATES, PRIORITIES, TYPES, labelOf } from "@/lib/constants";
 import { getTask, listActiveUsers } from "@/lib/queries";
+import { releasePath } from "@/lib/releases";
 import { resolveTaskKey } from "@/lib/task-service";
 
 export default function TaskPage({ params }: PageProps<"/tasks/[key]">) {
@@ -42,19 +42,15 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
-        <ProjectLink code={project.code} href="/backlog" className="hover:underline">
+        <Link href={`/${project.code}/backlog`} className="hover:underline">
           <span title={project.name} className="font-semibold">{project.code}</span> · Backlog
-        </ProjectLink>
+        </Link>
         <span>/</span>
         {t.sprint && (
           <>
-            <ProjectLink
-              code={project.code}
-              href={`/backlog?sprint=${encodeURIComponent(t.sprint)}`}
-              className="hover:underline"
-            >
+            <Link href={`/${project.code}/backlog?sprint=${encodeURIComponent(t.sprint)}`} className="hover:underline">
               {t.sprint}
-            </ProjectLink>
+            </Link>
             <span>/</span>
           </>
         )}
@@ -208,7 +204,7 @@ async function TaskContent({ params }: Pick<PageProps<"/tasks/[key]">, "params">
               <dt className="text-slate-500">Bản release</dt>
               <dd className="font-mono text-xs">
                 {t.releasedVersion ? (
-                  <Link href={`/report/releases/${project.code}/${t.releasedVersion}`} className="text-brand hover:underline">
+                  <Link href={releasePath(project.code, t.releasedVersion)} className="text-brand hover:underline">
                     {t.releasedVersion}
                   </Link>
                 ) : (

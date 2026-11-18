@@ -1,11 +1,13 @@
 import "server-only";
 import { asc, eq, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/db";
 import { projects, type Project } from "@/db/schema";
 
-// Dự án đang xem trên giao diện – lưu mã dự án trong cookie, không có thì lấy dự án đầu tiên
+// Dự án nằm trên đường dẫn (/SIA/board) – mỗi tab xem dự án riêng, không ảnh hưởng nhau.
+// Cookie chỉ nhớ dự án dùng gần nhất (proxy ghi) để chuyển đường dẫn cũ (/board) và trang không thuộc dự án.
 export const PROJECT_COOKIE = "tm_project";
 
 export const PROJECT_CODE = /^[A-Z][A-Z0-9]{1,9}$/;
@@ -31,6 +33,14 @@ export async function getDefaultProject(): Promise<Project> {
   return p;
 }
 
+// Dự án theo đoạn [project] trên đường dẫn; mã sai → trang không tìm thấy
+export async function projectFromParams(params: Promise<{ project: string }>): Promise<Project> {
+  const project = await getProjectByCode(decodeURIComponent((await params).project));
+  if (!project) notFound();
+  return project;
+}
+
+// Dự án dùng gần nhất (cookie), không có thì dự án đầu tiên
 export const getCurrentProject = cache(async (): Promise<Project> => {
   const code = (await cookies()).get(PROJECT_COOKIE)?.value;
   return (code && (await getProjectByCode(code))) || getDefaultProject();
