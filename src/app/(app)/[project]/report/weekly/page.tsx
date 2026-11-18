@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AiButton } from "@/components/ai-button";
 import { CopySummary } from "@/components/copy-summary";
 import { WeeklyEditor } from "@/components/goal-forms";
 import { GoalProgress, PaceBadge } from "@/components/goal-ui";
@@ -9,6 +10,7 @@ import { RichText } from "@/components/rich-text";
 import { Loading, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { today } from "@/lib/constants";
+import { aiReady } from "@/lib/gemini";
 import { projectFromParams } from "@/lib/projects";
 import { GOAL_STATUSES, addDays, draftBody, fmtDay, getWeekly, listWeeklyReports, weekStartOf } from "@/lib/weekly";
 
@@ -25,7 +27,7 @@ export default function WeeklyPage({ params, searchParams }: PageProps<"/[projec
 }
 
 async function WeeklyContent({ params, searchParams }: Pick<PageProps<"/[project]/report/weekly">, "params" | "searchParams">) {
-  const [, project] = await Promise.all([requireUser(), projectFromParams(params)]);
+  const [me, project, ai] = await Promise.all([requireUser(), projectFromParams(params), aiReady()]);
   const sp = await searchParams;
   const thisWeek = weekStartOf(today());
   // mặc định tuần vừa rồi – tuần hiện tại chưa xong nên chưa có báo cáo
@@ -61,7 +63,12 @@ async function WeeklyContent({ params, searchParams }: Pick<PageProps<"/[project
             Tuần sau ›
           </a>
         )}
-        <Link href={`/${project.code}/goals`} className="btn-ghost ml-auto">
+        {ai && me.role === "admin" && (
+          <div className="ml-auto">
+            <AiButton kind="weekly" project={project.code} week={w.weekStart} overwrite={!!w.report} />
+          </div>
+        )}
+        <Link href={`/${project.code}/goals`} className={`btn-ghost ${ai && me.role === "admin" ? "" : "ml-auto"}`}>
           Sửa mục tiêu →
         </Link>
       </div>
@@ -76,7 +83,7 @@ async function WeeklyContent({ params, searchParams }: Pick<PageProps<"/[project
             </p>
           ) : (
             <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Chưa có báo cáo cho tuần này. Claude viết vào thứ Bảy (<code>tm weekly</code> rồi <code>tm weekly-save</code>).
+              Chưa có báo cáo cho tuần này. Claude viết vào thứ Bảy (<code>tm weekly</code> rồi <code>tm weekly-save</code>), hoặc admin bấm ✦ Viết bằng Gemini.
               Dưới đây là bản nháp tự động từ số liệu.
               {latest && (
                 <>

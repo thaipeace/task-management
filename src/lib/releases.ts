@@ -5,7 +5,7 @@ import { DONE_STATUSES } from "./constants";
 import { TaskRuleError, resolveTaskKey, updateTaskCore, type Actor } from "./task-service";
 
 export const MAIN_VERSION = /^\d+\.\d+\.\d+$/;
-const RC_VERSION = /^(\d+\.\d+\.\d+)-rc(\d+)$/;
+export const RC_VERSION = /^(\d+\.\d+\.\d+)-rc(\d+)$/;
 
 export type DevRelease = typeof devReleases.$inferSelect;
 

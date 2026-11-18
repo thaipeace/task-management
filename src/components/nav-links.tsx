@@ -16,6 +16,7 @@ const ADMIN = [
   { href: "/admin/projects", label: "Dự án", icon: "◫" },
   { href: "/admin/users", label: "Người dùng", icon: "👥" },
   { href: "/admin/import", label: "Import / Export", icon: "⇅" },
+  { href: "/admin/ai", label: "Cài đặt AI", icon: "✦" },
 ];
 const MOBILE_ONLY = [{ href: "/account", label: "Tài khoản", icon: "◉" }];
 

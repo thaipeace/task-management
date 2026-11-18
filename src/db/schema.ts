@@ -303,3 +303,12 @@ export type Task = typeof tasks.$inferSelect;
 export type Sprint = typeof sprints.$inferSelect;
 export type TaskRecord = typeof records.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
+
+// Cài đặt chung toàn hệ thống (vd. "gemini": khoá API + model + hạn mức; "gemini_usage": token đã dùng theo tháng).
+// Khoá API chỉ admin đặt, không bao giờ gửi ngược về trình duyệt.
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+  updatedById: integer("updated_by_id").references(() => users.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

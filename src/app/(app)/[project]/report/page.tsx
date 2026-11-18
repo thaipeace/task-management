@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AiButton } from "@/components/ai-button";
 import { Burnup, OpenHeatmap, ReleaseProgress } from "@/components/charts";
 import { CopySummary } from "@/components/copy-summary";
 import { ReportTabs } from "@/components/report-tabs";
@@ -9,7 +10,10 @@ import { Loading, PageHeader } from "@/components/ui";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { PRIORITIES, STATUSES, today } from "@/lib/constants";
+import { INSIGHT_KEY, type Insight } from "@/lib/ai-reports";
+import { aiReady } from "@/lib/gemini";
 import { projectFromParams } from "@/lib/projects";
+import { getMeta } from "@/lib/queries";
 import { LEAD_KINDS, PROGRESS, buildSummary, fmt, getReport, summaryText, type Report } from "@/lib/report";
 
 export const metadata: Metadata = { title: "Báo cáo" };
@@ -28,7 +32,11 @@ async function ReportContent({ params }: Pick<PageProps<"/[project]/report">, "p
   const [me, project] = await Promise.all([requireUser(), projectFromParams(params)]);
   // Tổng quan (khối lượng theo người, rủi ro…) chỉ admin xem
   if (me.role !== "admin") redirect(`/${project.code}/report/weekly`);
-  const r = await getReport(project.id);
+  const [r, ai, insight] = await Promise.all([
+    getReport(project.id),
+    aiReady(),
+    getMeta(project.id, INSIGHT_KEY) as Promise<Insight | null>,
+  ]);
   const date = today();
   const sections = buildSummary(r, project.name);
   const T = r.totals;
@@ -42,6 +50,26 @@ async function ReportContent({ params }: Pick<PageProps<"/[project]/report">, "p
         actions={<CopySummary text={summaryText(sections, project.name, date.split("-").reverse().join("/"))} />}
       />
       <ReportTabs />
+
+      {(ai || insight) && (
+        <section className="card mb-6 p-4 md:p-5">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <h2 className="font-semibold">Nhận định</h2>
+            {insight && (
+              <span className="text-xs text-slate-500">
+                Gemini viết lúc {new Date(insight.at).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" })}
+                {insight.by ? ` (${insight.by} bấm)` : ""} – số bên dưới là số hiện tại
+              </span>
+            )}
+            {ai && (
+              <div className="ml-auto">
+                <AiButton kind="overview" project={project.code} overwrite={!!insight} />
+              </div>
+            )}
+          </div>
+          {insight ? <RichText text={insight.text} className="text-sm" /> : <p className="text-sm text-slate-500">Chưa có – bấm nút để Gemini đọc số liệu và viết nhận định.</p>}
+        </section>
+      )}
 
       {T.all === 0 ? (
         <div className="card p-8 text-center text-sm text-slate-500">

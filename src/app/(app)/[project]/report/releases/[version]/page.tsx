@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { AiButton } from "@/components/ai-button";
 import { CopyLink } from "@/components/copy-summary";
 import { ReportTabs } from "@/components/report-tabs";
 import { RichText } from "@/components/rich-text";
 import { AreaBadge, Loading, PageHeader, StatusBadge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { aiReady } from "@/lib/gemini";
 import { projectFromParams } from "@/lib/projects";
 import { getDevRelease } from "@/lib/releases";
 
@@ -29,11 +31,11 @@ export default function ReleasePage({ params }: PageProps<"/[project]/report/rel
 
 // Dự án lấy từ đường dẫn, không theo dự án đang chọn – link gửi đi mở đúng bản ở mọi máy
 async function ReleaseContent({ params }: Pick<PageProps<"/[project]/report/releases/[version]">, "params">) {
-  await requireUser();
+  const me = await requireUser();
   const p = await params;
   const version = decodeURIComponent(p.version);
   const project = await projectFromParams(params);
-  const data = await getDevRelease(project.id, version);
+  const [data, ai] = await Promise.all([getDevRelease(project.id, version), aiReady()]);
   if (!data) notFound();
   const { release, tasks } = data;
 
@@ -46,7 +48,14 @@ async function ReleaseContent({ params }: Pick<PageProps<"/[project]/report/rele
             ? `Ghi lúc ${DATE.format(release.createdAt)}${release.updatedAt.getTime() - release.createdAt.getTime() > 60_000 ? ` · sửa lúc ${DATE.format(release.updatedAt)}` : ""}`
             : "Có việc gắn bản này nhưng chưa có ghi chú đợt release"
         }
-        actions={<CopyLink />}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {ai && me.role === "admin" && tasks.length > 0 && (
+              <AiButton kind="release" project={project.code} version={version} overwrite={!!release?.body} />
+            )}
+            <CopyLink />
+          </div>
+        }
       />
       <ReportTabs />
       <div className="mb-3 text-sm">
