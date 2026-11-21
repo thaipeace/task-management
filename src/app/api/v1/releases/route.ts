@@ -4,7 +4,9 @@ import {
   releasePath,
   checkReleaseTasks,
   listDevReleases,
+  listReleaseComments,
   releaseApi,
+  releaseCommentApi,
   releaseVersion,
   saveDevRelease,
   tagReleaseTasks,
@@ -35,11 +37,19 @@ export const GET = withApiAuth(async (req) => {
   const sp = new URL(req.url).searchParams;
   const project = await resolveProject(sp.get("du_an"));
   const main = sp.get("main") ? mainVersion(sp.get("main")) : null;
-  const [rows, keys] = await Promise.all([listDevReleases(project.id), taskKeysByVersion(project.id)]);
+  const [rows, keys, comments] = await Promise.all([
+    listDevReleases(project.id),
+    taskKeysByVersion(project.id),
+    listReleaseComments(project.id),
+  ]);
   return json({
     releases: rows
       .filter((r) => !main || r.mainVersion === main)
-      .map((r) => releaseApi(r, project.code, keys.get(releaseVersion(r.mainVersion, r.rc)) ?? [])),
+      .map((r) => {
+        const v = releaseVersion(r.mainVersion, r.rc);
+        // binh_luan: mới nhất trước; loai "duyet" = nhận xét lúc duyệt (phản hồi, quyết định, tài liệu)
+        return { ...releaseApi(r, project.code, keys.get(v) ?? []), binh_luan: comments.filter((c) => c.version === v).map(releaseCommentApi) };
+      }),
   });
 });
 

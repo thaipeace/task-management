@@ -297,6 +297,23 @@ export const devReleases = pgTable(
   (t) => [uniqueIndex("dev_releases_version_idx").on(t.projectId, t.mainVersion, t.rc)],
 );
 
+// Bình luận theo từng bản release: kind "duyet" = ghi lúc bấm Duyệt (phản hồi của sếp, quyết định, điều chỉnh,
+// link tài liệu); "binh-luan" = trao đổi thêm. Gắn theo version (bản chỉ có việc gắn, chưa ghi đợt vẫn bình luận được).
+export const releaseComments = pgTable(
+  "release_comments",
+  {
+    id: serial("id").primaryKey(),
+    projectId: projectRef(),
+    version: text("version").notNull(),
+    kind: text("kind").notNull().default("binh-luan"),
+    body: text("body").notNull(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
+  },
+  (t) => [index("release_comments_version_idx").on(t.projectId, t.version)],
+);
+
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type Task = typeof tasks.$inferSelect;

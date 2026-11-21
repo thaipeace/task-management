@@ -1,6 +1,6 @@
-import { and, asc, eq, isNotNull, max } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, max } from "drizzle-orm";
 import { db } from "@/db";
-import { devReleases, tasks, users } from "@/db/schema";
+import { devReleases, releaseComments, tasks, users } from "@/db/schema";
 import { DONE_STATUSES } from "./constants";
 import { TaskRuleError, resolveTaskKey, updateTaskCore, type Actor } from "./task-service";
 
@@ -69,13 +69,15 @@ export async function taskCountByVersion(projectId: number) {
 
 // Duyệt đợt: đã release xong – việc gắn version này đang Xong trên Dev chuyển sang Released (có nhật ký),
 // cột Xong trên Dev chỉ còn việc của đợt sau. Ghi người / lúc duyệt nếu đợt có trang.
-export async function approveDevRelease(projectId: number, version: string, actor: Actor) {
+export async function approveDevRelease(projectId: number, version: string, actor: Actor, comment: string) {
   const pending = await db
     .select({ key: tasks.key })
     .from(tasks)
     .where(and(eq(tasks.projectId, projectId), eq(tasks.releasedVersion, version), eq(tasks.status, "xong")))
     .orderBy(asc(tasks.seq), asc(tasks.key));
   for (const t of pending) await updateTaskCore(t.key, { status: "released" }, actor);
+  // nhận xét duyệt: phản hồi của sếp, quyết định, điều chỉnh, link tài liệu – lưu cùng bản release
+  await db.insert(releaseComments).values({ projectId, version, kind: "duyet", body: comment, userId: actor.id });
   const m = RC_VERSION.exec(version);
   if (m) {
     await db
@@ -169,4 +171,49 @@ export async function taskKeysByVersion(projectId: number) {
   const map = new Map<string, string[]>();
   for (const r of rows) map.set(r.version!, [...(map.get(r.version!) ?? []), r.key]);
   return map;
+}
+
+// ---- Bình luận theo bản release (mới nhất lên trên) ----
+
+export async function listReleaseComments(projectId: number, version?: string) {
+  const where = [eq(releaseComments.projectId, projectId)];
+  if (version) where.push(eq(releaseComments.version, version));
+  return db
+    .select({
+      id: releaseComments.id,
+      version: releaseComments.version,
+      kind: releaseComments.kind,
+      body: releaseComments.body,
+      userId: releaseComments.userId,
+      userName: users.name,
+      createdAt: releaseComments.createdAt,
+      editedAt: releaseComments.editedAt,
+    })
+    .from(releaseComments)
+    .leftJoin(users, eq(users.id, releaseComments.userId))
+    .where(and(...where))
+    .orderBy(desc(releaseComments.id));
+}
+
+export type ReleaseComment = Awaited<ReturnType<typeof listReleaseComments>>[number];
+
+export function releaseCommentApi(c: ReleaseComment) {
+  return { id: c.id, loai: c.kind, noi_dung: c.body, nguoi_viet: c.userName, luc: c.createdAt, sua_luc: c.editedAt };
+}
+
+// Sửa nhận xét chung / ghi chú trên web (chỉ đợt đã có trang)
+export async function updateReleaseText(projectId: number, version: string, field: "body" | "notes", text: string, authorId: number) {
+  const m = RC_VERSION.exec(version);
+  if (!m) throw new TaskRuleError(`Phiên bản ${version} không đúng dạng x.y.z-rcN`);
+  if (field === "body" && !text) throw new TaskRuleError("Nhận xét chung không được trống");
+  await saveDevRelease(projectId, m[1], Number(m[2]), field === "body" ? { body: text } : { notes: text, ...(await bodyIfMissing(projectId, m)) }, authorId);
+}
+
+// đợt chưa có trang mà sửa ghi chú trước: tạo trang với nhận xét tạm
+async function bodyIfMissing(projectId: number, m: RegExpExecArray) {
+  const [r] = await db
+    .select({ id: devReleases.id })
+    .from(devReleases)
+    .where(and(eq(devReleases.projectId, projectId), eq(devReleases.mainVersion, m[1]), eq(devReleases.rc, Number(m[2]))));
+  return r ? {} : { body: "Chưa có nhận xét." };
 }

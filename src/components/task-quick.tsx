@@ -68,14 +68,15 @@ export function AssigneeSelect({
   );
 }
 
-export function DeleteCommentButton({ id }: { id: number }) {
+// remove / save: dùng cho bình luận nơi khác (vd. bản release); mặc định là bình luận của việc
+export function DeleteCommentButton({ id, remove }: { id: number; remove?: (id: number) => Promise<void> }) {
   const [pending, run] = useToastAction();
   return (
     <button
       disabled={pending}
       onClick={() => {
         if (confirm("Xoá bình luận này?"))
-          run(() => deleteComment(id), { loading: "Đang xoá bình luận…", success: "Đã xoá bình luận", error: "Không xoá được bình luận" });
+          run(() => (remove ?? deleteComment)(id), { loading: "Đang xoá bình luận…", success: "Đã xoá bình luận", error: "Không xoá được bình luận" });
       }}
       className="text-xs text-slate-400 hover:text-red-600"
     >
@@ -88,11 +89,13 @@ export function CommentBody({
   id,
   body,
   canEdit,
+  save,
   children,
 }: {
   id: number;
   body: string;
   canEdit: boolean;
+  save?: (id: number, body: string) => Promise<void>;
   children: React.ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
@@ -116,7 +119,7 @@ export function CommentBody({
         e.preventDefault();
         const text = String(new FormData(e.currentTarget).get("body") ?? "");
         start(async () => {
-          const ok = await toast.run(() => updateComment(id, text), {
+          const ok = await toast.run(() => (save ?? updateComment)(id, text), {
             loading: "Đang lưu bình luận…",
             success: "Đã sửa bình luận",
             error: "Không lưu được bình luận",
